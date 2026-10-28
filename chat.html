@@ -187,25 +187,19 @@ const cTopic = (...p) => CHAT_ROOT + p.join('/');
 const normId = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 const newChatId = () => Array.from({ length: 8 }, () => CODE_ABC[Math.floor(Math.random() * CODE_ABC.length)]).join('');
 
-/* any ID from 3 to 14 letters/numbers works — shorter or longer than 8, it registers as-is and
-   friends can find & request it. What you type is exactly what you get: no padding, no forced length. */
-/* dice: a random ID grown from the chosen name — "Meera" → MEE482, ITSME7739, MECHAT42 … */
 const idFromName = nm => {
   const base = normId(nm);
   if (base.length < 2) return newChatId();
   const digs = n => Array.from({ length: n }, () => String(Math.floor(Math.random() * 10))).join('');
   const pats = [
-    () => base.slice(0, 3 + Math.floor(Math.random() * 3)) + digs(2 + Math.floor(Math.random() * 3)),          /* MEE + a few digits */
-    () => 'ITS' + base.slice(0, 2 + Math.floor(Math.random() * 2)) + digs(2 + Math.floor(Math.random() * 3)),  /* ITSME + digits */
-    () => base.slice(0, 2) + 'CHAT' + digs(1 + Math.floor(Math.random() * 3)),                                 /* MECHAT + digits */
+    () => base.slice(0, 3 + Math.floor(Math.random() * 3)) + digs(2 + Math.floor(Math.random() * 3)),
+    () => 'ITS' + base.slice(0, 2 + Math.floor(Math.random() * 2)) + digs(2 + Math.floor(Math.random() * 3)),
+    () => base.slice(0, 2) + 'CHAT' + digs(1 + Math.floor(Math.random() * 3)),
   ];
   return pats[Math.floor(Math.random() * pats.length)]();
 };
 const freshChat = () => ({ me: null, friends: {}, reqsIn: {}, reqsOut: {}, threads: {}, unread: {}, seenUpto: {} });
 
-/* ---------------- splid vault — the device keyring that makes sign-in instant & offline-proof ----------------
-   Every ID this device has ever created or signed into keeps its password proof (salt + hash) and a full
-   local archive (friends, requests, chats) here — so signing in again NEVER depends on the network. */
 const VAULT_KEY = 'hisaab.chat.vault';
 const vaultAll = () => { try { const v = JSON.parse(localStorage.getItem(VAULT_KEY)); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch (e) { return {}; } };
 const vaultGet = id => vaultAll()[normId(id)] || null;
@@ -218,7 +212,6 @@ const vaultPut = (id, entry) => {
   } catch (e) {}
 };
 const vaultDrop = id => { try { const all = vaultAll(); delete all[normId(id)]; localStorage.setItem(VAULT_KEY, JSON.stringify(all)); } catch (e) {} };
-/* snapshot a chat state for the vault — threads capped so the keyring stays small */
 const vaultPickState = c => {
   const cap = n => { const th = {}; Object.keys(c.threads || {}).forEach(k => { th[k] = (c.threads[k] || []).slice(-n); }); return th; };
   const base = { me: c.me, friends: c.friends || {}, reqsIn: c.reqsIn || {}, reqsOut: c.reqsOut || {}, threads: cap(60), unread: c.unread || {}, seenUpto: c.seenUpto || {}, updatedAt: Date.now() };
@@ -227,15 +220,9 @@ const vaultPickState = c => {
   return base;
 };
 const vaultArchive = (id, chatState) => { if (id && chatState && chatState.me) vaultPut(id, { archive: { at: Date.now(), state: vaultPickState(chatState) } }); };
-/* wipe every ID this device may have saved before — nothing comes back, every open starts brand-new */
 try { localStorage.removeItem(KEY); } catch (e) {}
 try { localStorage.removeItem('hisaab.chat'); } catch (e) {}
 try { localStorage.removeItem(VAULT_KEY); } catch (e) {}
-
-/* ---------------- file attachments — any type, up to 200 MB, sent peer-to-peer ----------------
-   MQTT (public broker) only carries the tiny metadata offer + WebRTC signaling.
-   The actual bytes travel browser→browser over an RTCDataChannel, so 200 MB is no problem.
-   Received blobs are kept in IndexedDB — localStorage is far too small for big files. */
 
 const FILE_MAX = 200 * 1024 * 1024;
 const prettyBytes = n => {
@@ -256,7 +243,6 @@ const fileKindOf = (mime, name) => {
   return 'file';
 };
 
-/* IndexedDB blob store with in-memory fallback (some contexts block IDB) */
 const FILE_DB = 'splidchat-files';
 let _fileDb = null;
 const memFiles = new Map();
@@ -294,8 +280,6 @@ const loadFileBlob = async k => {
   return memFiles.get(k) || null;
 };
 
-/* one retained-message pull with a short "absent" window — the primitive behind every lookup.
-   Resolves { data, connected } so callers can tell "network down" from "truly not there". */
 function pullRetained(topic, match, opts) {
   opts = opts || {};
   return new Promise(resolve => {
@@ -309,7 +293,7 @@ function pullRetained(topic, match, opts) {
     c.on('connect', () => {
       sawConn = true;
       try { c.subscribe(topic, { qos: 0 }); } catch (e) {}
-      fast = setTimeout(() => finish({ data: null, connected: true }), opts.fastMs || 2600); // retained (or absence) resolves fast after connect
+      fast = setTimeout(() => finish({ data: null, connected: true }), opts.fastMs || 2600);
     });
     c.on('message', (t, payload) => {
       const s = payload.toString();
@@ -326,16 +310,12 @@ async function fetchChatProfile(id, timeout) {
   return r.data && r.data.profile ? r.data.profile : null;
 }
 
-/* one-shot lookup of the retained per-account cloud snapshot (friends, requests, recent chats) */
 async function fetchChatState(id, timeout) {
   const r = await pullRetained(cTopic('state', id), d => d.app === 'splidchat' && d.type === 'state' && d.state && d.state.me && d.state.me.id === id, { timeout: timeout || 8000, fastMs: 2400 });
   return r.data && r.data.state ? r.data.state : null;
 }
 const BROKERS = [MQTT_URL, 'wss://broker.emqx.io:8084/mqtt'];
-/* live handshake — when retained lookups come back empty (public brokers sometimes stop serving retained
-   messages), ping splidchat/v1/need/<ID>: any ONLINE device that owns the ID answers with its profile or
-   state over live delivery. Only helps while the owner is online somewhere — but that's the common case
-   (signing in on a laptop while your phone still has the account open). */
+
 function lookupLive(id, want, timeout) {
   return new Promise(resolve => {
     if (typeof mqtt === 'undefined') { resolve({ data: null, connected: false }); return; }
@@ -360,8 +340,7 @@ function lookupLive(id, want, timeout) {
     c.on('error', () => finish({ data: null, connected: sawConn }));
   });
 }
-/* sign-in identity chase — device vault is checked before this; here we chase the ID across two brokers and
-   both retained topics, then a live handshake, before ever saying "not found". Offline stays distinguishable. */
+
 async function lookupIdentity(id, onStep) {
   const tries = [
     { kind: 'profile', url: BROKERS[0] },
@@ -389,9 +368,7 @@ async function lookupIdentity(id, onStep) {
   }
   return { src, srcKind, connected };
 }
-/* ---------------- password hashing & profile pictures ---------------- */
 
-/* SHA-256 hex, pure-JS fallback for contexts where crypto.subtle is unavailable (e.g. file://) */
 function sha256Hex(str) {
   const maxWord = Math.pow(2, 32);
   let ascii;
@@ -409,8 +386,8 @@ function sha256Hex(str) {
       k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
     }
   }
-  ascii += '\x80';
-  while (ascii.length % 64 - 56) ascii += '\x00';
+  ascii += '€';
+  while (ascii.length % 64 - 56) ascii += ' ';
   for (let i = 0; i < ascii.length; i++) {
     const j = ascii.charCodeAt(i);
     if (j >> 8) return '';
@@ -450,7 +427,6 @@ function sha256Hex(str) {
   return result;
 }
 
-/* salted password hash — prefers the platform WebCrypto, falls back to sha256Hex */
 const sha256 = async s => {
   try {
     if (typeof crypto !== 'undefined' && crypto.subtle && crypto.subtle.digest) {
@@ -462,7 +438,6 @@ const sha256 = async s => {
 };
 const pwHash = (salt, pw) => sha256(String(salt) + ':' + String(pw));
 
-/* read an image file → compact square-ish JPEG data URL (fits comfortably in MQTT payloads) */
 const fileToPic = file => new Promise(resolve => {
   if (!file || !/^image\//.test(file.type || '')) { resolve(null); return; }
   const fr = new FileReader();
@@ -490,12 +465,7 @@ const fileToPic = file => new Promise(resolve => {
   fr.readAsDataURL(file);
 });
 
-/* ---------------- local store ---------------- */
-
-/* nothing is kept on this device — every open starts brand-new and IDs are made fresh */
 const freshDb = () => ({ v: 4, deviceId: uid(), chat: freshChat() });
-
-/* ---------------- primitives ---------------- */
 
 function Avatar({ m, size = 36, className = '' }) {
   if (m && m.pic) {
@@ -542,10 +512,8 @@ function ToastView({ toast }) {
   </div>`;
 }
 
-const REMOVED_TOPIC = id => cTopic('removed', normId(id));   /* network removal tombstones */
+const REMOVED_TOPIC = id => cTopic('removed', normId(id));
 const fmtBytes = n => !n || n < 0 ? '0 B' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
-
-/* ---------------- splid chat ui ---------------- */
 
 function ChatIdCopy({ id, big }) {
   const [copied, setCopied] = useState(false);
@@ -569,7 +537,6 @@ function ChatIdCopy({ id, big }) {
   </button>`;
 }
 
-/* circular profile-picture picker: tap → file input → compressed JPEG preview */
 function PicPicker({ pic, color, initial, onPic, size = 72 }) {
   const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -609,7 +576,7 @@ function ChatOnboard({ onCreate }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
-  const targetId = normId(idv);        /* exactly what you type — any length from 3 to 14, no padding */
+  const targetId = normId(idv);
   const idOk = targetId.length >= 3 && targetId.length <= 14;
   const passOk = pass.length >= 4;
   const passMatch = pass === pass2;
@@ -623,7 +590,7 @@ function ChatOnboard({ onCreate }) {
       if (!live) return;
       if (p) { setChk('taken'); return; }
       const tomb = await pullRetained(REMOVED_TOPIC(targetId), d => d && d.app === 'splidchat' && d.type === 'removed' && d.id === targetId, { timeout: 3200, fastMs: 1600 });
-      if (live) setChk(tomb && tomb.data ? 'removed' : 'free');   /* profile gone but tombstone retained → the owner removed it */
+      if (live) setChk(tomb && tomb.data ? 'removed' : 'free');
     }, 600);
     return () => { live = false; clearTimeout(t); };
   }, [targetId]);
@@ -756,7 +723,6 @@ function ChatHome({ chat, api, onOpenThread, onAddFriend, onEditProfile }) {
         </span>
         <${Icon} name="arrR" size=${16} className="text-paper/45 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"/>
       </button>
-
 
       ${reqsIn.length > 0 && html`<div className="mt-6">
         <div className="flex items-center gap-3 mb-2.5">
@@ -1219,10 +1185,8 @@ function ChatOverlay({ chat, api, view, setView }) {
     ${profOpen && me && html`<${ProfileSheet} me=${me} onClose=${() => setProfOpen(false)} onSave=${p => { api.updateProfile(p); setProfOpen(false); }} onLogout=${() => { setProfOpen(false); api.logout(); }} onDelete=${() => { setProfOpen(false); api.deleteAcc(); }}/>`}
   </div>`;
 }
-/* ---------------- app · chat only ---------------- */
 
 function App() {
-  /* every open is brand-new — no IDs, friends or chats are ever stored on this device */
   const [db, setDb] = useState(freshDb);
 
   const [toast, setToast] = useState(null);
@@ -1234,8 +1198,6 @@ function App() {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
 
-  /* ---------------- chat engine ---------------- */
-
   const chat = db.chat || freshChat();
   const patchChat = fn => setDb(d => ({ ...d, chat: fn(d.chat || freshChat()) }));
 
@@ -1245,11 +1207,11 @@ function App() {
   const [typing, setTyping] = useState({});
   const chatClientRef = useRef(null);
   const chatSubsRef = useRef(new Set());
-  const removedIdsRef = useRef(new Set());      /* IDs removed on the network — this device never re-announces them */
+  const removedIdsRef = useRef(new Set());
   const chatRef = useRef(chat); chatRef.current = chat;
   const chatThreadRef = useRef(null); chatThreadRef.current = chatView === 'home' ? null : chatView;
   const typSentRef = useRef({});
-  const restoreRef = useRef(false);   // pause state pushes while a restore lands
+  const restoreRef = useRef(false);
   const stateTimerRef = useRef(null);
 
   const chatPublish = (topic, obj, retain) => {
@@ -1257,12 +1219,11 @@ function App() {
     try { c.publish(topic, obj === null ? '' : JSON.stringify(obj), { qos: 0, retain: !!retain }); return true; } catch (e) { return false; }
   };
   const meCard = me => ({ id: me.id, name: me.name, color: me.color });
-  /* ---- file attachments (bytes go P2P over WebRTC; MQTT carries only signals) ---- */
   const [xfers, setXfers] = useState({});
   const xfRef = useRef({}); xfRef.current = xfers;
-  const outFiles = useRef(new Map());   // mid -> File handle on this device
-  const pcs = useRef(new Map());        // mid -> { pc, dc, role, open, done, cands }
-  const inBufs = useRef(new Map());     // mid -> receiver reassembly buffer
+  const outFiles = useRef(new Map());
+  const pcs = useRef(new Map());
+  const inBufs = useRef(new Map());
   const pullTimers = useRef(new Map());
 
   const setXfer = (mid, patch) => setXfers(x => ({ ...x, [mid]: { ...(x[mid] || {}), ...patch } }));
@@ -1274,7 +1235,6 @@ function App() {
     if (t) { clearTimeout(t); pullTimers.current.delete(mid); }
   };
 
-  /* pick a file (any type, ≤200 MB) and drop the metadata offer into the friend's inbox */
   const attachFile = (peerId, file) => {
     const me = chatRef.current.me;
     if (!me || !file) return;
@@ -1291,7 +1251,6 @@ function App() {
     });
   };
 
-  /* receiver side: ask the sender's device to start streaming this file */
   const startDownload = (peerId, mid) => {
     const me = chatRef.current.me;
     if (!me || pcs.current.has(mid)) return;
@@ -1308,7 +1267,6 @@ function App() {
     pullTimers.current.set(mid, t);
   };
 
-  /* sender side: serve a pulled file over a chunked, backpressured data channel */
   const beginCarrier = (peerId, mid) => {
     const me = chatRef.current.me;
     if (!me || pcs.current.has(mid)) return;
@@ -1367,7 +1325,6 @@ function App() {
     }).catch(fail);
   };
 
-  /* receiver side: answer the sender's WebRTC offer and reassemble the stream */
   const acceptCarrier = (senderId, mid, sdp) => {
     const me = chatRef.current.me;
     if (!me || pcs.current.has(mid)) return;
@@ -1426,7 +1383,6 @@ function App() {
     }).catch(fail);
   };
 
-  /* receiver: all chunks arrived — persist the blob and ack the sender */
   const finishIn = async (peerId, mid) => {
     const buf = inBufs.current.get(mid);
     const rec = pcs.current.get(mid);
@@ -1447,7 +1403,6 @@ function App() {
     teardownXfer(mid);
   };
 
-  /* stall watchdog — a transfer that moves no bytes for 30s is declared dead */
   useEffect(() => {
     const iv = setInterval(() => {
       const now = Date.now();
@@ -1465,8 +1420,7 @@ function App() {
     }, 6000);
     return () => clearInterval(iv);
   }, []);
-  /* this device's own ID was removed by the owner (tombstone landed): wipe the keyring, clean up
-     anything this device republished, and sign out for good */
+
   const handleSelfRemoved = () => {
     const me = chatRef.current.me;
     const c = chatClientRef.current;
@@ -1476,9 +1430,9 @@ function App() {
         try { c.publish(cTopic('state', me.id), '', { qos: 0, retain: true }); } catch (e) {}
         try { c.publish(cTopic('presence', me.id), '', { qos: 0, retain: true }); } catch (e) {}
       }
-      vaultDrop(me.id);   /* the keyring forgets this ID — it can never sign in from here again */
+      vaultDrop(me.id);
     }
-    if (c) { setTimeout(() => { try { c.end(true); } catch (e) {} }, 500); } /* let the cleanup publishes flush */
+    if (c) { setTimeout(() => { try { c.end(true); } catch (e) {} }, 500); }
     chatClientRef.current = null;
     chatSubsRef.current = new Set();
     setPresence({}); setTyping({}); setChatOn(false); setChatView('home');
@@ -1486,11 +1440,11 @@ function App() {
     patchChat(() => freshChat());
     showToast('This ID was removed — you have been signed out', 'trash');
   };
+
   const onChatMsg = (topic, payload) => {
     const me = chatRef.current.me; if (!me) return;
-    /* live handshake — another device is looking for MY id and the broker lost the retained copies: answer now */
     if (topic === cTopic('need', me.id)) {
-      if (removedIdsRef.current.has(me.id)) return;   /* a removed ID never answers identity pings */
+      if (removedIdsRef.current.has(me.id)) return;
       let d; try { d = JSON.parse(payload.toString()); } catch (e) { return; }
       if (!d || d.app !== 'splidchat' || d.type !== 'need' || normId(d.id) !== me.id) return;
       if (d.want === 'state') chatPublish(cTopic('state', me.id), { app:'splidchat', type:'state', v:1, state: vaultPickState(chatRef.current) }, false);
@@ -1638,7 +1592,7 @@ function App() {
     m = topic.match(/^splidchat\/v1\/removed\/([A-Z0-9]+)$/);
     if (m) {
       const s = payload.toString();
-      if (!s) {   /* tombstone cleared — the owner restored the ID */
+      if (!s) {
         if (m[1] === me.id) removedIdsRef.current.delete(me.id);
         return;
       }
@@ -1648,6 +1602,7 @@ function App() {
       return;
     }
   };
+
   const connectChat = () => {
     if (chatClientRef.current || typeof mqtt === 'undefined') return;
     const me = chatRef.current.me; if (!me) return;
@@ -1663,13 +1618,13 @@ function App() {
       setChatOn(true);
       const me2 = chatRef.current.me; if (!me2) return;
       chatSubsRef.current.add(cTopic('inbox', me2.id, '#'));
-      chatSubsRef.current.add(cTopic('need', me2.id)); /* live handshake listener — answers identity pings */
+      chatSubsRef.current.add(cTopic('need', me2.id));
       chatSubsRef.current.add(cTopic('profile', me2.id));
-      chatSubsRef.current.add(cTopic('removed', me2.id)); /* our own tombstone — lands instantly if the owner removed this ID */
+      chatSubsRef.current.add(cTopic('removed', me2.id));
       Object.keys(chatRef.current.friends || {}).forEach(f => { chatSubsRef.current.add(cTopic('presence', f)); chatSubsRef.current.add(cTopic('profile', f)); });
       chatSubsRef.current.forEach(t => { try { c.subscribe(t, { qos: 0 }); } catch (e) {} });
       chatPublish(cTopic('presence', me2.id), { app:'splidchat', on: 1, t: Date.now() }, true);
-      if (!removedIdsRef.current.has(normId(me2.id))) {   /* a removed ID never re-announces its identity */
+      if (!removedIdsRef.current.has(normId(me2.id))) {
         chatPublish(cTopic('profile', me2.id), { app:'splidchat', type:'profile', profile: { id: me2.id, name: me2.name, color: me2.color, pic: me2.pic || '', dev: me2.dev, salt: me2.salt, hash: me2.hash }, updatedAt: Date.now() }, true);
       }
     });
@@ -1709,7 +1664,7 @@ function App() {
     window.addEventListener('beforeunload', bye);
     return () => { window.removeEventListener('beforeunload', bye); if (chatClientRef.current) { try { chatClientRef.current.end(true); } catch (e) {} } };
   }, []);
-  /* cloud state sync — debounced retained snapshot so the account can be restored on any device */
+
   useEffect(() => {
     if (!chat.me || restoreRef.current || !chatOn) return;
     clearTimeout(stateTimerRef.current);
@@ -1734,16 +1689,16 @@ function App() {
     }, 1200);
     return () => clearTimeout(stateTimerRef.current);
   }, [chat, chatOn]);
-  /* ---- chat actions ---- */
+
   const createIdentity = async ({ name, id, color, pic, password }) => {
-    const clean = normId(id);               /* exactly what the user chose — 3–14 chars, short or long, no padding */
+    const clean = normId(id);
     const pw = String(password || '');
     if (!name.trim() || clean.length < 3 || clean.length > 14) return { taken: false };
     if (pw.length < 4) return { taken: false, weak: true };
     const existing = await fetchChatProfile(clean);
     if (existing) return { taken: true };
     const tomb = await pullRetained(REMOVED_TOPIC(clean), d => d && d.app === 'splidchat' && d.type === 'removed' && d.id === clean, { timeout: 3200, fastMs: 1800 });
-    if (tomb && tomb.data) return { taken: false, removedId: true };   /* the owner removed this ID — unusable until restored */
+    if (tomb && tomb.data) return { taken: false, removedId: true };
     const salt = uid() + uid();
     const hash = await pwHash(salt, pw);
     const me = { id: clean, name: name.trim().slice(0, 24), color: color || AV[hashStr(clean) % AV.length], pic: pic || '', joinedAt: Date.now(), dev: db.deviceId, salt, hash };
@@ -1753,7 +1708,6 @@ function App() {
     return { taken: false };
   };
 
-  /* permanently delete the account — wipes the cloud identity & snapshot, clears the inbox, tells friends, then signs out here */
   const deleteAccount = () => {
     const me = chatRef.current.me;
     const c = chatClientRef.current;
@@ -1765,7 +1719,7 @@ function App() {
       chatPublish(cTopic('profile', me.id), null, true);
       chatPublish(cTopic('state', me.id), null, true);
       chatPublish(cTopic('presence', me.id), '', true);
-      vaultDrop(me.id); /* the keyring forgets this ID too */
+      vaultDrop(me.id);
       try {
         const w = mqtt.connect(MQTT_URL, { clientId: 'splidx-' + uid(), keepalive: 10, reconnectPeriod: 0, connectTimeout: 6000 });
         const root = cTopic('inbox', me.id, '');
@@ -1774,7 +1728,7 @@ function App() {
         setTimeout(() => { try { w.end(true); } catch (e) {} }, 6000);
       } catch (e) {}
     }
-    if (c) { setTimeout(() => { try { c.end(true); } catch (e) {} }, 600); } /* small delay so the goodbye publishes flush before the socket closes */
+    if (c) { setTimeout(() => { try { c.end(true); } catch (e) {} }, 600); }
     chatClientRef.current = null;
     chatSubsRef.current = new Set();
     Array.from(new Set([...pcs.current.keys(), ...pullTimers.current.keys()])).forEach(teardownXfer);
@@ -1784,12 +1738,12 @@ function App() {
     patchChat(() => freshChat());
     showToast('Account deleted — that ID is now free', 'trash');
   };
-  /* log out on this device — everything is dropped; the next open starts brand-new */
+
   const logoutChat = () => {
     const me = chatRef.current.me;
     const c = chatClientRef.current;
     if (me && c) { try { c.publish(cTopic('presence', me.id), '', { qos: 0, retain: true }); } catch (e) {} }
-    if (c) { setTimeout(() => { try { c.end(true); } catch (e) {} }, 500); } /* let the presence clear flush */
+    if (c) { setTimeout(() => { try { c.end(true); } catch (e) {} }, 500); }
     chatClientRef.current = null;
     chatSubsRef.current = new Set();
     Array.from(new Set([...pcs.current.keys(), ...pullTimers.current.keys()])).forEach(teardownXfer);
@@ -1798,6 +1752,7 @@ function App() {
     patchChat(() => freshChat());
     showToast('Logged out', 'logout');
   };
+
   const updateProfile = async ({ name, color, pic }) => {
     const me = chatRef.current.me; if (!me) return;
     const next = { ...me, name: (name || '').trim().slice(0, 24) || me.name, color: color || me.color, pic: pic || '' };
@@ -1805,6 +1760,7 @@ function App() {
     chatPublish(cTopic('profile', me.id), { app:'splidchat', type:'profile', profile: { id: me.id, name: next.name, color: next.color, pic: next.pic, dev: me.dev, salt: me.salt, hash: me.hash }, updatedAt: Date.now() }, true);
     showToast('Profile updated', 'check');
   };
+
   const sendFriendReq = async idRaw => {
     const me = chat.me; const clean = normId(idRaw);
     if (!me) throw 'offline';
@@ -1814,7 +1770,7 @@ function App() {
     if (Object.values(chat.reqsOut || {}).some(r => r.to && r.to.id === clean)) throw 'pending';
     if (Object.values(chat.reqsIn || {}).some(r => r.from && r.from.id === clean)) throw 'incoming';
     let p = await fetchChatProfile(clean).catch(() => null);
-    if (!p) { try { const r = await lookupLive(clean, 'profile', 4200); if (r.data && r.data.profile) p = r.data.profile; } catch (e) {} } /* retained lost → ask live */
+    if (!p) { try { const r = await lookupLive(clean, 'profile', 4200); if (r.data && r.data.profile) p = r.data.profile; } catch (e) {} }
     if (!p || !p.id) throw 'notfound';
     const reqId = uid() + Date.now().toString(36);
     const ok = chatPublish(cTopic('inbox', clean, 'req', reqId), { app:'splidchat', type:'friend-req', reqId, from: { ...meCard(me), pic: me.pic || '' }, ts: Date.now() }, true);
@@ -1887,10 +1843,9 @@ function App() {
     typSentRef.current[fid] = now;
     if (chat.me) chatPublish(cTopic('inbox', fid, 'typ'), { app:'splidchat', type:'typ', from: chat.me.id }, false);
   };
-  const chatApi = { online: chatOn, presence, typing, xfers, createIdentity, logout: logoutChat, deleteAcc: deleteAccount, updateProfile, sendFriendReq, acceptReq, declineReq, cancelReq, unfriend, sendMsg, markRead, pingTyping, attachFile, startDownload, peekOutFile: mid => outFiles.current.get(mid) || null, loadFile: mid => loadFileBlob(mid),
-  };
 
-  /* the chat IS the app — always open, default view */
+  const chatApi = { online: chatOn, presence, typing, xfers, createIdentity, logout: logoutChat, deleteAcc: deleteAccount, updateProfile, sendFriendReq, acceptReq, declineReq, cancelReq, unfriend, sendMsg, markRead, pingTyping, attachFile, startDownload, peekOutFile: mid => outFiles.current.get(mid) || null, loadFile: mid => loadFileBlob(mid) };
+
   return html`<div className="min-h-screen dotbg text-ink font-sans antialiased">
     <${ChatOverlay} chat=${chat} api=${chatApi} view=${chatView} setView=${setChatView}/>
     <${ToastView} toast=${toast}/>
