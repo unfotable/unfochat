@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#F6F1E8"/>
+<title>Chat</title>
+
+<script>/* the app is light-only — strip any stale dark-mode leftovers before first paint */try{localStorage.removeItem('hisaab.theme')}catch(e){}try{document.documentElement.classList.remove('dark')}catch(e){}</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      paper:'rgb(var(--c-paper) / <alpha-value>)', card:'rgb(var(--c-card) / <alpha-value>)', ink:'rgb(var(--c-ink) / <alpha-value>)', muted:'rgb(var(--c-muted) / <alpha-value>)', line:'rgb(var(--c-line) / <alpha-value>)',
+      rust:{DEFAULT:'rgb(var(--c-rust) / <alpha-value>)', deep:'rgb(var(--c-rust-deep) / <alpha-value>)', tint:'rgb(var(--c-rust-tint) / <alpha-value>)'},
+      sage:{DEFAULT:'rgb(var(--c-sage) / <alpha-value>)', deep:'rgb(var(--c-sage-deep) / <alpha-value>)', tint:'rgb(var(--c-sage-tint) / <alpha-value>)'},
+    },
+    fontFamily: {
+      display:['Fraunces','Georgia','serif'],
+      sans:['"Instrument Sans"','ui-sans-serif','sans-serif'],
+    },
+    boxShadow: {
+      soft:'0 1px 2px rgba(38,34,27,.04), 0 10px 30px -12px rgba(38,34,27,.15)',
+      pop:'0 4px 10px rgba(38,34,27,.08), 0 24px 60px -20px rgba(38,34,27,.35)',
+    },
+  }}
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+<style>
+  *{-webkit-tap-highlight-color:transparent}
+  button{touch-action:manipulation}
+  html{color-scheme:light}
+  :root{--c-paper:246 241 232;--c-card:252 249 243;--c-ink:38 34 27;--c-muted:125 116 99;--c-line:230 220 198;--c-rust:225 75 79;--c-rust-deep:185 53 57;--c-rust-tint:253 233 233;--c-sage:43 182 94;--c-sage-deep:29 138 72;--c-sage-tint:223 246 230}
+  ::selection{background:rgb(var(--c-ink));color:rgb(var(--c-paper))}
+  .dotbg{
+    background-color:rgb(var(--c-paper));
+    background-image:radial-gradient(rgba(38,34,27,.12) 1.2px,transparent 1.2px);
+    background-size:22px 22px;
+  }
+  @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+  .live-dot{animation:livePulse 1.6s ease-in-out infinite}
+  .numtab{font-variant-numeric:tabular-nums lining-nums}
+  .font-display{font-optical-sizing:auto}
+  .lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgb(var(--c-muted));margin-bottom:8px}
+  .inp{width:100%;background:rgb(var(--c-paper));border:1px solid rgb(var(--c-line));border-radius:12px;padding:10px 14px;font-size:15px;font-weight:500;outline:none;transition:border-color .2s}
+  .inp:focus{border-color:rgb(var(--c-ink))}
+  .inp::placeholder{color:rgb(var(--c-muted));opacity:.75}
+
+  @keyframes sheetUp{from{transform:translateY(48px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+  .sheet-in{animation:sheetUp .36s cubic-bezier(.32,.72,.24,1) both}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .backdrop-in{animation:fadeIn .22s ease both}
+  @keyframes barUp{from{transform:scaleY(.03)}to{transform:scaleY(1)}}
+  .bar-up{transform-origin:bottom;animation:barUp .65s cubic-bezier(.22,.9,.3,1) both}
+  @keyframes donutIn{from{transform:scale(.82) rotate(-10deg);opacity:0}60%{transform:scale(1.03) rotate(2deg);opacity:1}to{transform:scale(1) rotate(0)}}
+  .donut-in{animation:donutIn .5s cubic-bezier(.34,1.3,.5,1) both}
+  @keyframes rise{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+  .rise{animation:rise .45s cubic-bezier(.22,.9,.3,1) both}
+
+  @keyframes ppDrop{0%{transform:translateY(-12px) scale(.3) rotate(-24deg);opacity:0}62%{transform:translateY(2px) scale(1.1) rotate(3deg);opacity:1}100%{transform:translateY(0) scale(1) rotate(0)}}
+  .pp-face{animation:ppDrop .5s cubic-bezier(.34,1.56,.64,1) both;transition:left .32s cubic-bezier(.22,.9,.3,1)}
+  .pp-rail{transition:width .32s cubic-bezier(.22,.9,.3,1)}
+  @keyframes ppCardIn{0%{transform:scale(.88,.72);opacity:0}62%{transform:scale(1.015,1.008);opacity:1}100%{transform:scale(1,1)}}
+  .pp-card{transform-origin:top left;animation:ppCardIn .4s cubic-bezier(.34,1.3,.5,1) both}
+  @keyframes ppRowIn{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .pp-row-in{animation:ppRowIn .38s cubic-bezier(.22,.9,.3,1) both}
+  @keyframes ppTickIn{0%{transform:scale(.3);opacity:0}68%{transform:scale(1.18);opacity:1}100%{transform:scale(1);opacity:1}}
+  .pp-tick{display:inline-flex;animation:ppTickIn .34s cubic-bezier(.34,1.56,.64,1) both}
+  @keyframes toastIn{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+  .toast-in{animation:toastIn .32s cubic-bezier(.2,1.1,.4,1) both}
+  @keyframes typDot{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-3px);opacity:1}}
+  .typ-dot{width:5px;height:5px;border-radius:50%;background:currentColor;animation:typDot 1.15s ease-in-out infinite}
+  .typ-dot:nth-child(2){animation-delay:.15s}
+  .typ-dot:nth-child(3){animation-delay:.3s}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:20px;cursor:pointer;width:100%}
+  input[type=range]:disabled{opacity:.35;cursor:default}
+  input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:99px;background:rgb(var(--c-line))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:rgb(var(--c-ink));border:2.5px solid rgb(var(--c-card));box-shadow:0 1px 3px rgba(0,0,0,.35);margin-top:-6.5px}
+  input[type=range]::-moz-range-track{height:3px;border-radius:99px;background:rgb(var(--c-line))}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:rgb(var(--c-ink));border:2.5px solid rgb(var(--c-card));box-shadow:0 1px 3px rgba(0,0,0,.35)}
+
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
+</head>
+
+<body class="bg-paper text-ink font-sans antialiased">
+<div id="root"></div>
+<noscript>Please enable JavaScript to run this app.</noscript>
+
+<script>
+const { useState, useEffect, useMemo, useRef, useLayoutEffect } = React;
+const html = htm.bind(React.createElement);
+
+/* ---------------- constants & helpers ---------------- */
+
+const KEY = 'hisaab.v4';
+const uid = () => Math.random().toString(36).slice(2, 10);
+const P = d => ({ t:'p', d });
+
+const AV = ['#4283F2','#E95EC0','#3FCE6E','#EE5458','#9A5CF5','#22B8D4','#F27A3C','#DE9A2E'];
+
+const ICONS = {
+  plus:[P('M12 5v14'),P('M5 12h14')],
+  x:[P('M18 6 6 18'),P('M6 6l12 12')],
+  check:[P('M20 6 9 17l-5-5')],
+  left:[P('M15 18l-6-6 6-6')],
+  right:[P('M9 18l6-6-6-6')],
+  down:[P('M6 9l6 6 6-6')],
+  food:[P('M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2'),P('M7 2v20'),P('M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Z'),P('M21 15v7')],
+  travel:[P('M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2Z')],
+  stay:[P('M3 10.5 12 3l9 7.5'),P('M5 9.8V21h14V9.8'),P('M9.5 21v-6.5h5V21')],
+  misc:[P('M12 3.5 13.6 8l4.4 1.6-4.4 1.6L12 15.7l-1.6-4.5L6 9.6 10.4 8 12 3.5Z'),P('M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z')],
+  arrR:[P('M5 12h13'),P('M12 6l6 6-6 6')],
+  arrLR:[P('M8 3 4 7l4 4'),P('M4 7h15'),P('M16 21l4-4-4-4'),P('M20 17H5')],
+  trash:[P('M3 6h18'),P('M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6'),P('M18.8 6l-.7 12.1a2 2 0 0 1-2 1.9H7.9a2 2 0 0 1-2-1.9L5.2 6'),P('M10 10.5v6'),P('M14 10.5v6')],
+  clock:[P('M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'),P('M12 7.5V12l3 2')],
+  wallet:[P('M19 7V6a2 2 0 0 0-2-2H5.5A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20H19a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5.5'),P('M16.5 13.5h.01')],
+  equal:[P('M5 9.5h14'),P('M5 14.5h14')],
+  slider:[P('M4 21v-5'),P('M4 12V3'),P('M12 21v-9'),P('M12 8V3'),P('M20 21v-3'),P('M20 14V3'),P('M2 16h4'),P('M10 8h4'),P('M18 18h4')],
+  pct:[P('M19 5 5 19'),{t:'c',cx:6.8,cy:6.8,r:2.4},{t:'c',cx:17.2,cy:17.2,r:2.4}],
+  pencil:[P('M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z')],
+  sparkle:[P('M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z'),P('M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z')],
+  book:[P('M4 19.5A2.5 2.5 0 0 1 6.5 17H20'),P('M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z')],
+  sheet:[P('M3 5.5A1.5 1.5 0 0 1 4.5 4h15A1.5 1.5 0 0 1 21 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5v-13Z'),P('M3 9.5h18'),P('M9.5 9.5V20'),P('M15.5 9.5V20')],
+  replay:[P('M3 12a9 9 0 1 0 9-9 9.7 9.7 0 0 0-6.74 2.74L3 8'),P('M3 3v5h5')],
+  users:[P('M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2'),{t:'c',cx:9.5,cy:7,r:4},P('M22 21v-2a4 4 0 0 0-3-3.87'),P('M15.5 3.13a4 4 0 0 1 0 7.75')],
+  github:[P('M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4'),P('M9 18c-4.51 2-5-2-7-2')],
+  chat:[P('M7.9 20A9 9 0 1 0 4 16.1L2 22Z')],
+  send:[P('M22 2 11 13'),P('M22 2 15 22 11 13 2 9 22 2Z')],
+  userPlus:[P('M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'),{t:'c',cx:9,cy:7,r:4},P('M19 8v6'),P('M22 11h-6')],
+  copy:[P('M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'),P('M11 9h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z')],
+  at:[P('M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8'),{t:'c',cx:12,cy:12,r:4}],
+  checkCheck:[P('M18 6 7 17l-5-5'),P('m22 10-7.5 7.5L13 16')],
+  dice:[{t:'p',d:'M4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15A1.5 1.5 0 0 1 4.5 3Z'},P('M8 8h.01'),P('M16 8h.01'),P('M12 12h.01'),P('M8 16h.01'),P('M16 16h.01')],
+  camera:[P('M14.5 4h-5L7.7 6.3a1 1 0 0 1-.8.4H4a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8.7a2 2 0 0 0-2-2h-2.9a1 1 0 0 1-.8-.4L14.5 4Z'),{t:'c',cx:12,cy:13,r:3.2}],
+  lock:[{t:'p',d:'M5.5 10.5h13A1.5 1.5 0 0 1 20 12v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 20v-8a1.5 1.5 0 0 1 1.5-1.5Z'},P('M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5')],
+  eye:[P('M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z'),{t:'c',cx:12,cy:12,r:3}],
+  eyeOff:[P('M10.7 5.7A9.7 9.7 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17.9 17.9 0 0 1-2.4 3.2'),P('M6.6 6.6C3.8 8.4 2.5 12 2.5 12s3.5 6.5 9.5 6.5a9.3 9.3 0 0 0 4.4-1.1'),P('M9.9 9.9a3 3 0 1 0 4.2 4.2'),P('M3 3l18 18')],
+  logout:[P('M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9'),P('M16 17l5-5-5-5'),P('M21 12H9')],
+  clip:[P('m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48')],
+  download:[P('M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'),P('m7 10 5 5 5-5'),P('M12 15V3')],
+  doc:[P('M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2Z'),P('M14 2v6h6'),P('M9 13h6'),P('M9 17h4')],
+};
+
+function Icon({ name, size=18, sw=2, className='' }) {
+  if (!ICONS[name]) return null;
+  return html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth=${sw} strokeLinecap="round" strokeLinejoin="round" className=${className} aria-hidden="true">
+    ${ICONS[name].map((s, i) => s.t === 'p'
+      ? html`<path key=${i} d=${s.d}/>`
+      : html`<circle key=${i} cx=${s.cx} cy=${s.cy} r=${s.r}/>`)}
+  </svg>`;
+}
+const firstName = n => (n || '?').trim().split(/\s+/)[0];
+
+function dayLabel(ts) {
+  const d = new Date(ts), t = new Date();
+  const same = (a, b) => a.toDateString() === b.toDateString();
+  if (same(d, t)) return 'Today';
+  if (same(d, new Date(t.getTime() - 864e5))) return 'Yesterday';
+  return d.toLocaleDateString('en-IN', { day:'numeric', month:'short' })
+    + (d.getFullYear() !== t.getFullYear() ? ' ' + d.getFullYear() : '');
+}
+const timeLabel = ts => new Date(ts).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
+
+const MQTT_URL = 'wss://broker.hivemq.com:8884/mqtt';
+const CODE_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const chunkCode = c => String(c || '').replace(/(.{4})(?=.)/g, '$1-');
+const hashStr = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h; };
+
+/* ---------------- splid chat · ids, friends & 1:1 messages ---------------- */
+
+const CHAT_ROOT = 'splidchat/v1/';
+const cTopic = (...p) => CHAT_ROOT + p.join('/');
+const normId = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const newChatId = () => Array.from({ length: 8 }, () => CODE_ABC[Math.floor(Math.random() * CODE_ABC.length)]).join('');
+
+/* any ID from 3 to 14 letters/numbers works — shorter or longer than 8, it registers as-is and
+   friends can find & request it. What you type is exactly what you get: no padding, no forced length. */
+/* dice: a random ID grown from the chosen name — "Meera" → MEE482, ITSME7739, MECHAT42 … */
+const idFromName = nm => {
+  const base = normId(nm);
+  if (base.length < 2) return newChatId();
+  const digs = n => Array.from({ length: n }, () => String(Math.floor(Math.random() * 10))).join('');
+  const pats = [
+    () => base.slice(0, 3 + Math.floor(Math.random() * 3)) + digs(2 + Math.floor(Math.random() * 3)),          /* MEE + a few digits */
+    () => 'ITS' + base.slice(0, 2 + Math.floor(Math.random() * 2)) + digs(2 + Math.floor(Math.random() * 3)),  /* ITSME + digits */
+    () => base.slice(0, 2) + 'CHAT' + digs(1 + Math.floor(Math.random() * 3)),                                 /* MECHAT + digits */
+  ];
+  return pats[Math.floor(Math.random() * pats.length)]();
+};
+const freshChat = () => ({ me: null, friends: {}, reqsIn: {}, reqsOut: {}, threads: {}, unread: {}, seenUpto: {} });
+
+/* ---------------- splid vault — the device keyring that makes sign-in instant & offline-proof ----------------
+   Every ID this device has ever created or signed into keeps its password proof (salt + hash) and a full
+   local archive (friends, requests, chats) here — so signing in again NEVER depends on the network. */
+const VAULT_KEY = 'hisaab.chat.vault';
+const vaultAll = () => { try { const v = JSON.parse(localStorage.getItem(VAULT_KEY)); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch (e) { return {}; } };
+const vaultGet = id => vaultAll()[normId(id)] || null;
+const vaultPut = (id, entry) => {
+  try {
+    const k = normId(id); if (!k) return;
+    const all = vaultAll();
+    all[k] = { ...(all[k] || {}), ...entry, id: k, savedAt: Date.now() };
+    localStorage.setItem(VAULT_KEY, JSON.stringify(all));
+  } catch (e) {}
+};
+const vaultDrop = id => { try { const all = vaultAll(); delete all[normId(id)]; localStorage.setItem(VAULT_KEY, JSON.stringify(all)); } catch (e) {} };
+/* snapshot a chat state for the vault — threads capped so the keyring stays small */
+const vaultPickState = c => {
+  const cap = n => { const th = {}; Object.keys(c.threads || {}).forEach(k => { th[k] = (c.threads[k] || []).slice(-n); }); return th; };
+  const base = { me: c.me, friends: c.friends || {}, reqsIn: c.reqsIn || {}, reqsOut: c.reqsOut || {}, threads: cap(60), unread: c.unread || {}, seenUpto: c.seenUpto || {}, updatedAt: Date.now() };
+  try { if (JSON.stringify(base).length > 700000) base.threads = cap(25); } catch (e) {}
+  try { if (JSON.stringify(base).length > 700000) base.threads = {}; } catch (e) {}
+  return base;
+};
+const vaultArchive = (id, chatState) => { if (id && chatState && chatState.me) vaultPut(id, { archive: { at: Date.now(), state: vaultPickState(chatState) } }); };
+/* wipe every ID this device may have saved before — nothing comes back, every open starts brand-new */
+try { localStorage.removeItem(KEY); } catch (e) {}
+try { localStorage.removeItem('hisaab.chat'); } catch (e) {}
+try { localStorage.removeItem(VAULT_KEY); } catch (e) {}
+
+/* ---------------- file attachments — any type, up to 200 MB, sent peer-to-peer ----------------
+   MQTT (public broker) only carries the tiny metadata offer + WebRTC signaling.
+   The actual bytes travel browser→browser over an RTCDataChannel, so 200 MB is no problem.
+   Received blobs are kept in IndexedDB — localStorage is far too small for big files. */
+
+const FILE_MAX = 200 * 1024 * 1024;
+const prettyBytes = n => {
+  n = +n || 0;
+  if (n < 1024) return n + ' B';
+  const u = ['KB', 'MB', 'GB']; let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return (n >= 100 ? Math.round(n) : Math.round(n * 10) / 10) + ' ' + u[i];
+};
+const fileKindOf = (mime, name) => {
+  const m = String(mime || ''), n = String(name || '').toLowerCase();
+  if (/^image\//.test(m) || /\.(png|jpe?g|gif|webp|bmp|svg|heic|avif)$/.test(n)) return 'image';
+  if (/^video\//.test(m) || /\.(mp4|mov|mkv|webm|avi|m4v)$/.test(n)) return 'video';
+  if (/^audio\//.test(m) || /\.(mp3|wav|ogg|m4a|aac|flac)$/.test(n)) return 'audio';
+  if (/\.pdf$/.test(n) || m === 'application/pdf') return 'pdf';
+  if (/\.(zip|rar|7z|tar|gz|bz2|xz)$/.test(n)) return 'zip';
+  if (/\.(docx?|xlsx?|pptx?|csv|txt|md|pages)$/.test(n)) return 'doc';
+  return 'file';
+};
+
+/* IndexedDB blob store with in-memory fallback (some contexts block IDB) */
+const FILE_DB = 'splidchat-files';
+let _fileDb = null;
+const memFiles = new Map();
+const idbRun = (mode, fn) => new Promise((res, rej) => {
+  let done = false;
+  const fail = e => { if (!done) { done = true; rej(e || new Error('idb')); } };
+  try {
+    if (typeof indexedDB === 'undefined') { fail(new Error('no-idb')); return; }
+    const open = _fileDb ? Promise.resolve(_fileDb) : new Promise((res2, rej2) => {
+      const rq = indexedDB.open(FILE_DB, 1);
+      rq.onupgradeneeded = () => { try { rq.result.createObjectStore('files'); } catch (e) {} };
+      rq.onsuccess = () => { _fileDb = rq.result; res2(rq.result); };
+      rq.onerror = () => rej2(rq.error || new Error('idb'));
+    });
+    open.then(db => {
+      let tx, rq2;
+      try { tx = db.transaction('files', mode); rq2 = fn(tx.objectStore('files')); }
+      catch (e) { fail(e); return; }
+      tx.oncomplete = () => { if (!done) { done = true; res(rq2 ? rq2.result : undefined); } };
+      tx.onerror = () => fail(tx.error);
+      tx.onabort = () => fail(tx.error);
+    }).catch(fail);
+    setTimeout(() => fail(new Error('idb-timeout')), 20000);
+  } catch (e) { fail(e); }
+});
+const storeFileBlob = async (k, blob) => {
+  try { await idbRun('readwrite', st => st.put(blob, k)); }
+  catch (e) { try { memFiles.set(k, blob); } catch (e2) {} }
+};
+const loadFileBlob = async k => {
+  try {
+    const v = await idbRun('readonly', st => st.get(k));
+    if (v instanceof Blob && v.size) return v;
+  } catch (e) {}
+  return memFiles.get(k) || null;
+};
+
+/* one retained-message pull with a short "absent" window — the primitive behind every lookup.
+   Resolves { data, connected } so callers can tell "network down" from "truly not there". */
+function pullRetained(topic, match, opts) {
+  opts = opts || {};
+  return new Promise(resolve => {
+    if (typeof mqtt === 'undefined') { resolve({ data: null, connected: false }); return; }
+    let c;
+    try { c = mqtt.connect(opts.url || MQTT_URL, { clientId: 'splidp-' + uid(), keepalive: 20, reconnectPeriod: 0, connectTimeout: 6000 }); }
+    catch (e) { resolve({ data: null, connected: false }); return; }
+    let done = false, sawConn = false, to = null, fast = null;
+    const finish = v => { if (done) return; done = true; clearTimeout(to); clearTimeout(fast); try { c.end(true); } catch (e) {} resolve(v); };
+    to = setTimeout(() => finish({ data: null, connected: sawConn }), opts.timeout || 5000);
+    c.on('connect', () => {
+      sawConn = true;
+      try { c.subscribe(topic, { qos: 0 }); } catch (e) {}
+      fast = setTimeout(() => finish({ data: null, connected: true }), opts.fastMs || 2600); // retained (or absence) resolves fast after connect
+    });
+    c.on('message', (t, payload) => {
+      const s = payload.toString();
+      if (!s) { finish({ data: null, connected: true }); return; }
+      try { const d = JSON.parse(s); if (d && match(d)) finish({ data: d, connected: true }); } catch (e) {}
+    });
+    c.on('error', () => finish({ data: null, connected: sawConn }));
+    c.on('close', () => { if (!done && sawConn) finish({ data: null, connected: true }); });
+  });
+}
+
+async function fetchChatProfile(id, timeout) {
+  const r = await pullRetained(cTopic('profile', id), d => d.app === 'splidchat' && d.profile && d.profile.id === id, { timeout: timeout || 4500, fastMs: 2400 });
+  return r.data && r.data.profile ? r.data.profile : null;
+}
+
+/* one-shot lookup of the retained per-account cloud snapshot (friends, requests, recent chats) */
+async function fetchChatState(id, timeout) {
+  const r = await pullRetained(cTopic('state', id), d => d.app === 'splidchat' && d.type === 'state' && d.state && d.state.me && d.state.me.id === id, { timeout: timeout || 8000, fastMs: 2400 });
+  return r.data && r.data.state ? r.data.state : null;
+}
+const BROKERS = [MQTT_URL, 'wss://broker.emqx.io:8084/mqtt'];
+/* live handshake — when retained lookups come back empty (public brokers sometimes stop serving retained
+   messages), ping splidchat/v1/need/<ID>: any ONLINE device that owns the ID answers with its profile or
+   state over live delivery. Only helps while the owner is online somewhere — but that's the common case
+   (signing in on a laptop while your phone still has the account open). */
+function lookupLive(id, want, timeout) {
+  return new Promise(resolve => {
+    if (typeof mqtt === 'undefined') { resolve({ data: null, connected: false }); return; }
+    let c;
+    try { c = mqtt.connect(MQTT_URL, { clientId: 'splidn-' + uid(), keepalive: 20, reconnectPeriod: 0, connectTimeout: 6000 }); }
+    catch (e) { resolve({ data: null, connected: false }); return; }
+    let done = false, sawConn = false, to = null, rep1 = null, rep2 = null;
+    const finish = v => { if (done) return; done = true; clearTimeout(to); clearTimeout(rep1); clearTimeout(rep2); try { c.end(true); } catch (e) {} resolve(v); };
+    const matchProfile = d => d && d.app === 'splidchat' && d.profile && d.profile.id === id;
+    const matchState = d => d && d.app === 'splidchat' && d.type === 'state' && d.state && d.state.me && d.state.me.id === id;
+    to = setTimeout(() => finish({ data: null, connected: sawConn }), timeout || 4200);
+    c.on('connect', () => {
+      sawConn = true;
+      try { c.subscribe(want === 'state' ? cTopic('state', id) : cTopic('profile', id), { qos: 0 }); } catch (e) {}
+      const ping = () => { try { c.publish(cTopic('need', id), JSON.stringify({ app: 'splidchat', type: 'need', want, id, t: Date.now() }), { qos: 0 }); } catch (e) {} };
+      ping(); rep1 = setTimeout(ping, 900); rep2 = setTimeout(ping, 2000);
+    });
+    c.on('message', (t, payload) => {
+      const s = payload.toString(); if (!s) return;
+      try { const d = JSON.parse(s); if ((want === 'state' && matchState(d)) || (want !== 'state' && matchProfile(d))) finish({ data: d, connected: true }); } catch (e) {}
+    });
+    c.on('error', () => finish({ data: null, connected: sawConn }));
+  });
+}
+/* sign-in identity chase — device vault is checked before this; here we chase the ID across two brokers and
+   both retained topics, then a live handshake, before ever saying "not found". Offline stays distinguishable. */
+async function lookupIdentity(id, onStep) {
+  const tries = [
+    { kind: 'profile', url: BROKERS[0] },
+    { kind: 'profile', url: BROKERS[1] },
+    { kind: 'state', url: BROKERS[0] },
+    { kind: 'state', url: BROKERS[1] },
+    { kind: 'live', want: 'profile' },
+    { kind: 'live', want: 'state' },
+  ];
+  let connected = false, src = null, srcKind = null;
+  for (let i = 0; i < tries.length && !src; i++) {
+    const t = tries[i];
+    if (onStep) { try { onStep(t.kind === 'live' ? 'live' : (t.kind === 'profile' ? 'lookup' : 'cloud')); } catch (e) {} }
+    let r;
+    if (t.kind === 'live') r = await lookupLive(id, t.want, 4200);
+    else r = await pullRetained(
+      cTopic(t.kind, id),
+      t.kind === 'profile'
+        ? d => d.app === 'splidchat' && d.profile && d.profile.id === id
+        : d => d.app === 'splidchat' && d.type === 'state' && d.state && d.state.me && d.state.me.id === id,
+      { url: t.url, timeout: i === 0 ? 6000 : 4600, fastMs: i === 0 ? 2600 : 2200 }
+    );
+    if (r.connected) connected = true;
+    if (r.data) { src = t.kind === 'state' || (t.kind === 'live' && t.want === 'state') ? r.data.state : r.data.profile; srcKind = t.kind === 'live' && t.want === 'state' ? 'state' : t.kind; }
+  }
+  return { src, srcKind, connected };
+}
+/* ---------------- password hashing & profile pictures ---------------- */
+
+/* SHA-256 hex, pure-JS fallback for contexts where crypto.subtle is unavailable (e.g. file://) */
+function sha256Hex(str) {
+  const maxWord = Math.pow(2, 32);
+  let ascii;
+  try { ascii = encodeURIComponent(String(str)).replace(/%([0-9A-F]{2})/g, (m, p) => String.fromCharCode(parseInt(p, 16))); }
+  catch (e) { ascii = String(str); }
+  const words = [];
+  const asciiBitLength = ascii.length * 8;
+  const hash = [], k = [];
+  let primeCounter = 0;
+  const isComposite = {};
+  for (let candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (Math.pow(candidate, .5) * maxWord) | 0;
+      k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii.length % 64 - 56) ascii += '\x00';
+  for (let i = 0; i < ascii.length; i++) {
+    const j = ascii.charCodeAt(i);
+    if (j >> 8) return '';
+    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  }
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+  const rr = (v, a) => (v >>> a) | (v << (32 - a));
+  for (let j0 = 0; j0 < words.length;) {
+    const w = words.slice(j0, j0 += 16);
+    const oldHash = hash.slice(0);
+    const hh = hash.slice(0, 8);
+    for (let i = 0; i < 64; i++) {
+      const w15 = w[i - 15], w2 = w[i - 2];
+      const a = hh[0], e = hh[4];
+      const temp1 = hh[7]
+        + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25))
+        + ((e & hh[5]) ^ ((~e) & hh[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (
+          w[i - 16]
+          + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3))
+          + w[i - 7]
+          + (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))
+        ) | 0);
+      const temp2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & hh[1]) ^ (a & hh[2]) ^ (hh[1] & hh[2]));
+      hh.unshift((temp1 + temp2) | 0);
+      hh[4] = (hh[4] + temp1) | 0;
+    }
+    for (let i = 0; i < 8; i++) hash[i] = (hh[i] + oldHash[i]) | 0;
+  }
+  let result = '';
+  for (let i = 0; i < 8; i++) for (let j = 3; j + 1; j--) {
+    const b = (hash[i] >> (j * 8)) & 255;
+    result += ((b < 16) ? 0 : '') + b.toString(16);
+  }
+  return result;
+}
+
+/* salted password hash — prefers the platform WebCrypto, falls back to sha256Hex */
+const sha256 = async s => {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.subtle && crypto.subtle.digest) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(s)));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch (e) {}
+  return sha256Hex(s);
+};
+const pwHash = (salt, pw) => sha256(String(salt) + ':' + String(pw));
+
+/* read an image file → compact square-ish JPEG data URL (fits comfortably in MQTT payloads) */
+const fileToPic = file => new Promise(resolve => {
+  if (!file || !/^image\//.test(file.type || '')) { resolve(null); return; }
+  const fr = new FileReader();
+  fr.onerror = () => resolve(null);
+  fr.onload = () => {
+    const img = new Image();
+    img.onerror = () => resolve(null);
+    img.onload = () => {
+      try {
+        const MAX = 256;
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (!w || !h) { resolve(null); return; }
+        const sc = Math.min(1, MAX / Math.max(w, h));
+        w = Math.max(1, Math.round(w * sc)); h = Math.max(1, Math.round(h * sc));
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        let q = 0.72, url = cv.toDataURL('image/jpeg', q);
+        while (url.length > 60000 && q > 0.4) { q -= 0.12; url = cv.toDataURL('image/jpeg', q); }
+        resolve(url.length > 90000 ? null : url);
+      } catch (e) { resolve(null); }
+    };
+    img.src = String(fr.result || '');
+  };
+  fr.readAsDataURL(file);
+});
+
+/* ---------------- local store ---------------- */
+
+/* nothing is kept on this device — every open starts brand-new and IDs are made fresh */
+const freshDb = () => ({ v: 4, deviceId: uid(), chat: freshChat() });
+
+/* ---------------- primitives ---------------- */
+
+function Avatar({ m, size = 36, className = '' }) {
+  if (m && m.pic) {
+    return html`<img src=${m.pic} alt=${(m.name || '?') + '’s avatar'} draggable=${false}
+      className=${'rounded-full object-cover select-none shrink-0 bg-paper ' + className}
+      style=${{ width:size, height:size, boxShadow:'0 0 0 2px rgb(var(--c-card))' }}/>`;
+  }
+  return html`<span className=${'inline-flex items-center justify-center rounded-full font-semibold text-[#FCF9F3] select-none shrink-0 ' + className}
+    style=${{ width:size, height:size, background:m.color, fontSize:Math.round(size * .42), boxShadow:'0 0 0 2px rgb(var(--c-card))' }}>
+    ${(m.name || '?').trim()[0].toUpperCase()}
+  </span>`;
+}
+function Sheet({ title, onClose, children, footer, wide }) {
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', h); document.body.style.overflow = prev; };
+  }, []);
+  return html`<div className="fixed inset-0 z-[75]">
+    <div className="absolute inset-0 bg-ink/40 backdrop-in" onClick=${onClose}></div>
+    <div className="absolute inset-0 flex items-end sm:items-center justify-center pointer-events-none p-0 sm:p-6">
+      <div className=${'pointer-events-auto sheet-in w-full ' + (wide ? 'sm:max-w-lg' : 'sm:max-w-md') +
+        ' bg-card rounded-t-3xl sm:rounded-3xl shadow-pop max-h-[92vh] flex flex-col overflow-hidden'}>
+        <div className="flex items-center justify-between px-5 pt-4 pb-3.5 border-b border-line shrink-0">
+          <h3 className="font-display text-[19px] font-semibold">${title}</h3>
+          <button onClick=${onClose} aria-label="Close" className="p-1.5 -mr-1 rounded-full text-muted hover:bg-paper hover:text-ink transition"><${Icon} name="x" size=${18}/></button>
+        </div>
+        <div className="overflow-y-auto px-5 py-4 flex-1">${children}</div>
+        ${footer}
+      </div>
+    </div>
+  </div>`;
+}
+
+function ToastView({ toast }) {
+  if (!toast) return null;
+  return html`<div key=${toast.key} className="fixed left-1/2 bottom-6 sm:bottom-10 z-[90]" style=${{ transform:'translateX(-50%)' }}>
+    <div className="toast-in flex items-center gap-2.5 bg-ink text-paper rounded-full pl-2 pr-4 py-2 shadow-pop">
+      <span className="w-6 h-6 rounded-full bg-sage flex items-center justify-center shrink-0"><${Icon} name=${toast.icon || 'check'} size=${13} sw=${3} className="text-paper"/></span>
+      <span className="text-[13.5px] font-semibold pr-1">${toast.msg}</span>
+    </div>
+  </div>`;
+}
+
+const REMOVED_TOPIC = id => cTopic('removed', normId(id));   /* network removal tombstones */
+const fmtBytes = n => !n || n < 0 ? '0 B' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
+
+/* ---------------- splid chat ui ---------------- */
+
+function ChatIdCopy({ id, big }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 1600); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(done, done);
+    else {
+      const ta = document.createElement('textarea');
+      ta.value = id; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      ta.remove(); done();
+    }
+  };
+  return html`<button onClick=${copy} aria-label="Copy your ID" title="Copy your ID"
+    className="shrink-0 inline-flex items-center gap-2 bg-paper border border-line rounded-full pl-3.5 pr-1.5 py-1.5 hover:border-muted transition active:scale-95">
+    <code className=${'font-mono font-bold tracking-[.12em] numtab ' + (big ? 'text-[15px]' : 'text-[12.5px]')}>${chunkCode(id)}</code>
+    <span className=${'w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition ' + (copied ? 'bg-sage text-paper' : 'bg-ink text-paper')}>
+      <${Icon} name=${copied ? 'check' : 'copy'} size=${12} sw=${2.4}/>
+    </span>
+  </button>`;
+}
+
+/* circular profile-picture picker: tap → file input → compressed JPEG preview */
+function PicPicker({ pic, color, initial, onPic, size = 72 }) {
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const pick = async e => {
+    const f = e.target && e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    setBusy(true);
+    const url = await fileToPic(f);
+    setBusy(false);
+    if (url) onPic(url);
+  };
+  return html`<button type="button" onClick=${() => fileRef.current && fileRef.current.click()} aria-label="Choose profile picture"
+    title="Upload a profile picture"
+    className="relative rounded-full shrink-0 transition active:scale-95 group" style=${{ width:size, height:size }}>
+    ${pic
+      ? html`<img src=${pic} alt="Profile picture" draggable=${false} className="w-full h-full rounded-full object-cover bg-paper"
+          style=${{ boxShadow:'0 0 0 2px rgb(var(--c-card)), 0 10px 28px -12px rgba(38,34,27,.4)' }}/>`
+      : html`<span className="w-full h-full rounded-full flex items-center justify-center font-semibold text-[#FCF9F3] select-none"
+          style=${{ background:color, fontSize:Math.round(size * .4), boxShadow:'0 0 0 2px rgb(var(--c-card)), 0 10px 28px -12px rgba(38,34,27,.4)' }}>${(initial || '?').toUpperCase()}</span>`}
+    <span className=${'absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-ink text-paper border-2 border-card flex items-center justify-center transition ' + (busy ? 'opacity-60' : 'group-hover:bg-ink/90')}>
+      <${Icon} name="camera" size=${13} sw=${2.2}/>
+    </span>
+    <input ref=${fileRef} type="file" accept="image/*" className="hidden" onChange=${pick}/>
+  </button>`;
+}
+
+function ChatOnboard({ onCreate }) {
+  const [name, setName] = useState('');
+  const [idv, setIdv] = useState(newChatId());
+  const [color, setColor] = useState(AV[Math.floor(Math.random() * AV.length)]);
+  const [pic, setPic] = useState('');
+  const [pass, setPass] = useState('');
+  const [pass2, setPass2] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [chk, setChk] = useState('idle');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const targetId = normId(idv);        /* exactly what you type — any length from 3 to 14, no padding */
+  const idOk = targetId.length >= 3 && targetId.length <= 14;
+  const passOk = pass.length >= 4;
+  const passMatch = pass === pass2;
+
+  useEffect(() => {
+    if (!idOk) { setChk('idle'); return; }
+    let live = true;
+    setChk('checking');
+    const t = setTimeout(async () => {
+      const p = await fetchChatProfile(targetId);
+      if (!live) return;
+      if (p) { setChk('taken'); return; }
+      const tomb = await pullRetained(REMOVED_TOPIC(targetId), d => d && d.app === 'splidchat' && d.type === 'removed' && d.id === targetId, { timeout: 3200, fastMs: 1600 });
+      if (live) setChk(tomb && tomb.data ? 'removed' : 'free');   /* profile gone but tombstone retained → the owner removed it */
+    }, 600);
+    return () => { live = false; clearTimeout(t); };
+  }, [targetId]);
+
+  const canCreate = name.trim().length >= 1 && idOk && chk !== 'checking' && chk !== 'taken' && chk !== 'removed' && passOk && passMatch && !busy;
+
+  const create = async () => {
+    if (!canCreate) return;
+    setBusy(true); setErr(null);
+    const res = await onCreate({ name, id: targetId, color, pic, password: pass });
+    if (res && res.taken) setChk('taken');
+    if (res && res.removedId) setErr('This ID was removed from the network — please pick another one.');
+    setBusy(false);
+  };
+
+  const passField = (val, set, ph, ac, onEnter, inpId) => html`<div className="relative">
+    <input type=${showPass ? 'text' : 'password'} className="inp pr-11" placeholder=${ph} autoComplete=${ac} id=${inpId}
+      maxLength=${40} value=${val} onChange=${e => { set(e.target.value); setErr(null); }}
+      onKeyDown=${e => { if (e.key === 'Enter' && onEnter) onEnter(); }}/>
+    <button type="button" onClick=${() => setShowPass(s => !s)} aria-label=${showPass ? 'Hide password' : 'Show password'}
+      className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-ink transition">
+      <${Icon} name=${showPass ? 'eyeOff' : 'eye'} size=${15}/>
+    </button>
+  </div>`;
+
+  return html`<div className="flex-1 overflow-y-auto flex items-start sm:items-center justify-center p-4">
+    <div className="sheet-in w-full max-w-md bg-card border border-line rounded-3xl shadow-pop p-5 sm:p-6 my-4">
+      <div className="flex flex-col items-center text-center">
+        <${PicPicker} pic=${pic} color=${color} initial=${name.trim()[0]} onPic=${setPic} size=${72}/>
+        <h2 className="font-display text-[22px] font-semibold mt-3 leading-tight">Make your ID</h2>
+        <p className="text-[13px] text-muted mt-1.5 leading-relaxed max-w-[330px]">One ID, all your chats. Add friends with their ID, they accept, and you talk — no phone number needed.</p>
+      </div>
+
+      ${html`
+      <div className="mt-5">
+        <label className="lbl">Your name</label>
+        <input className="inp" placeholder="What should friends call you?" maxLength=${24} value=${name}
+          onChange=${e => setName(e.target.value)}/>
+      </div>
+
+      <div className="mt-4">
+        <label className="lbl">Your ID</label>
+        <div className="flex gap-2">
+          <input className="inp font-mono font-bold tracking-[.14em] uppercase text-[16px] select-all" placeholder="PICK-ANY-ID" spellCheck=${false}
+            maxLength=${14} value=${idv} onChange=${e => setIdv(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}/>
+          <button onClick=${() => setIdv(idFromName(name))} title="Randomize an ID from your name" aria-label="Randomize an ID from your name"
+            className="shrink-0 w-11 rounded-xl bg-paper border border-line text-muted hover:text-ink hover:border-muted flex items-center justify-center transition active:scale-95">
+            <${Icon} name="dice" size=${17}/>
+          </button>
+        </div>
+        <div className="mt-2 text-[12px] font-semibold flex items-center gap-1.5 min-h-[18px]">
+          ${chk === 'checking' && html`<span className="w-1.5 h-1.5 rounded-full bg-sage live-dot"></span><span className="text-muted">Checking ${chunkCode(targetId)}…</span>`}
+          ${chk === 'free' && idOk && html`<span className="w-1.5 h-1.5 rounded-full bg-sage"></span><span className="text-sage-deep">${chunkCode(targetId)} is free — grab it!</span>`}
+          ${chk === 'taken' && html`<span className="w-1.5 h-1.5 rounded-full bg-rust"></span><span className="text-rust-deep">${chunkCode(targetId)} is already taken — try another</span>`}
+          ${chk === 'removed' && html`<span className="w-1.5 h-1.5 rounded-full bg-rust"></span><span className="text-rust-deep">${chunkCode(targetId)} is not available — try another ID.</span>`}
+          ${chk === 'idle' && html`<span className="text-muted">3–14 letters or numbers — short or long, your call · the dice builds one from your name</span>`}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="lbl">Your color</label>
+        <div className="flex flex-wrap gap-2">
+          ${AV.map(c => html`<button key=${c} onClick=${() => setColor(c)} aria-label=${'Color ' + c}
+            className=${'w-8 h-8 rounded-full transition active:scale-90 ' + (color === c ? 'ring-2 ring-offset-2 ring-ink ring-offset-card' : 'hover:scale-110')}
+            style=${{ background: c }}></button>`)}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="lbl"><span className="inline-flex items-center gap-1.5"><${Icon} name="lock" size=${12} sw=${2.4}/>Password</span></label>
+        ${passField(pass, setPass, 'At least 4 characters', 'new-password', null)}
+        <div className="mt-2">${passField(pass2, setPass2, 'Repeat the password', 'new-password', create)}</div>
+        ${pass2 && !passMatch && html`<div className="mt-2 text-[12px] font-semibold text-rust-deep">Passwords don’t match yet</div>`}
+      </div>
+
+      ${err && html`<div className="mt-3 rounded-2xl px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed bg-rust-tint text-rust-deep border border-rust/25">${err}</div>`}
+      <button onClick=${create} disabled=${!canCreate}
+        className=${'mt-6 w-full rounded-full py-3 text-[14px] font-semibold transition active:scale-[.98] ' +
+          (canCreate ? 'bg-ink text-paper hover:bg-ink/90' : 'bg-ink/20 text-paper cursor-not-allowed')}>
+        ${busy ? 'Creating your ID…' : 'Create my ID'}
+      </button>
+      <p className="text-[11px] text-muted mt-3 text-center leading-relaxed">Your ID is 3–14 letters or numbers — short or long, exactly as you type it — and public, so friends can find you. Your password is the key that locks this ID — keep it private.</p>`}
+    </div>
+  </div>`;
+}
+
+function ChatHome({ chat, api, onOpenThread, onAddFriend, onEditProfile }) {
+  const me = chat.me;
+  const [confirmOut, setConfirmOut] = useState(false);
+  useEffect(() => {
+    if (!confirmOut) return;
+    const t = setTimeout(() => setConfirmOut(false), 2600);
+    return () => clearTimeout(t);
+  }, [confirmOut]);
+  const friends = Object.values(chat.friends || {});
+  const reqsIn = Object.values(chat.reqsIn || {}).sort((a, b) => b.ts - a.ts);
+  const reqsOut = Object.values(chat.reqsOut || {}).sort((a, b) => b.ts - a.ts);
+  const lastOf = fid => { const a = (chat.threads || {})[fid] || []; return a[a.length - 1] || null; };
+  const rows = friends.map(f => ({ f, last: lastOf(f.id), unread: (chat.unread || {})[f.id] || 0 }))
+    .sort((a, b) => (b.last ? b.last.ts : (b.f.since || 0)) - (a.last ? a.last.ts : (a.f.since || 0)));
+  const when = ts => new Date(ts).toDateString() === new Date().toDateString() ? timeLabel(ts) : dayLabel(ts);
+
+  return html`<div className="flex-1 overflow-y-auto">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-5 pb-24">
+
+      <div className="bg-card border border-line rounded-3xl shadow-soft p-4 sm:p-5 flex items-center gap-3.5">
+        <${Avatar} m=${me} size=${48}/>
+        <div className="flex-1 min-w-0">
+          <div className="font-display text-[18px] font-semibold leading-tight truncate">${me.name}</div>
+          <div className="text-[11px] font-bold tracking-[.14em] uppercase text-muted mt-0.5">My ID</div>
+        </div>
+        <${ChatIdCopy} id=${me.id}/>
+        <button onClick=${onEditProfile} aria-label="Edit profile" title="Edit profile · photo, name, color"
+          className="shrink-0 w-9 h-9 rounded-full bg-paper border border-line text-muted hover:text-ink hover:border-muted flex items-center justify-center transition active:scale-95">
+          <${Icon} name="pencil" size=${14}/>
+        </button>
+        <button onClick=${() => { if (confirmOut) api.logout(); else setConfirmOut(true); }} aria-label="Log out" title=${confirmOut ? 'Tap again to log out' : 'Log out on this device'}
+          className=${'shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition active:scale-95 ' + (confirmOut ? 'bg-rust text-paper' : 'bg-paper border border-line text-muted hover:text-rust hover:border-rust/40')}>
+          <${Icon} name="logout" size=${14}/>
+        </button>
+      </div>
+
+      <button onClick=${onAddFriend} className="group w-full mt-4 flex items-center gap-3.5 rounded-3xl bg-ink text-paper px-4 sm:px-5 py-4 text-left shadow-pop transition hover:bg-ink/90 active:scale-[.99]">
+        <span className="w-10 h-10 rounded-2xl bg-[#3DDC5C]/15 border border-[#3DDC5C]/30 text-[#3DDC5C] flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:rotate-12">
+          <${Icon} name="userPlus" size=${18}/>
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block font-display font-bold tracking-[.15em] text-[13.5px] uppercase leading-tight">Add a friend<span className="text-[#3DDC5C]">.</span></span>
+          <span className="block text-[12px] text-paper/55 mt-1 leading-snug">Enter their ID — they accept, and you can chat.</span>
+        </span>
+        <${Icon} name="arrR" size=${16} className="text-paper/45 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"/>
+      </button>
+
+
+      ${reqsIn.length > 0 && html`<div className="mt-6">
+        <div className="flex items-center gap-3 mb-2.5">
+          <span className="text-[11px] font-bold tracking-[.18em] uppercase text-muted">Requests · ${reqsIn.length}</span>
+          <span className="h-px flex-1 bg-line"></span>
+        </div>
+        <div className="space-y-2">
+          ${reqsIn.map((r, i) => html`<div key=${r.reqId} className="rise bg-card border border-line rounded-2xl px-3.5 py-3 flex items-center gap-3" style=${{ animationDelay: (i * 60) + 'ms' }}>
+            <${Avatar} m=${{ pic: r.from.pic, name: r.from.name || '?', color: r.from.color || '#4283F2' }} size=${38}/>
+            <div className="flex-1 min-w-0">
+              <div className="text-[14px] font-semibold truncate">${r.from.name || 'Someone'}</div>
+              <div className="text-[12px] text-muted numtab truncate">${chunkCode(r.from.id)} · wants to chat with you</div>
+            </div>
+            <button onClick=${() => api.acceptReq(r.reqId)} className="shrink-0 rounded-full bg-sage text-paper text-[12.5px] font-semibold px-3.5 py-2 hover:bg-sage-deep active:scale-95 transition">Accept</button>
+            <button onClick=${() => api.declineReq(r.reqId)} aria-label="Decline request" className="shrink-0 rounded-full border border-line text-muted hover:text-rust hover:border-rust/40 text-[12.5px] font-semibold px-3 py-2 transition">Decline</button>
+          </div>`)}
+        </div>
+      </div>`}
+
+      ${reqsOut.length > 0 && html`<div className="mt-5">
+        <div className="flex items-center gap-3 mb-2.5">
+          <span className="text-[11px] font-bold tracking-[.18em] uppercase text-muted">Sent · waiting</span>
+          <span className="h-px flex-1 bg-line"></span>
+        </div>
+        <div className="space-y-1.5">
+          ${reqsOut.map(r => html`<div key=${r.reqId} className="bg-card border border-line rounded-2xl px-3.5 py-2.5 flex items-center gap-3">
+            <${Avatar} m=${{ pic: r.to.pic, name: r.to.name || '?', color: r.to.color || '#4283F2' }} size=${30}/>
+            <div className="flex-1 min-w-0 text-[13.5px] truncate">
+              <span className="font-semibold">${r.to.name || r.to.id}</span>
+              <span className="text-muted numtab text-[12px] ml-1.5">${chunkCode(r.to.id)}</span>
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-[10.5px] font-bold tracking-[.12em] uppercase text-muted border border-line rounded-full px-2 py-1 shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-muted live-dot"></span>Pending</span>
+            <button onClick=${() => api.cancelReq(r.reqId)} aria-label="Cancel request" className="p-1.5 rounded-full text-muted hover:text-rust hover:bg-rust-tint transition shrink-0"><${Icon} name="x" size=${14}/></button>
+          </div>`)}
+        </div>
+      </div>`}
+
+      <div className="mt-6">
+        <div className="flex items-center gap-3 mb-2.5">
+          <span className="text-[11px] font-bold tracking-[.18em] uppercase text-muted">Friends · ${rows.length}</span>
+          <span className="h-px flex-1 bg-line"></span>
+        </div>
+        ${rows.length === 0 ? html`<div className="bg-card border border-line rounded-3xl px-4 py-8 flex flex-col items-center text-center gap-2">
+          <span className="w-11 h-11 rounded-full bg-paper border border-line flex items-center justify-center text-muted"><${Icon} name="users" size=${19}/></span>
+          <div className="text-[14px] font-semibold">No friends yet</div>
+          <div className="text-[12.5px] text-muted max-w-[260px] leading-relaxed">Add your first friend with their ID — once they accept, your chat opens up.</div>
+        </div>`
+        : html`<div className="bg-card border border-line rounded-3xl shadow-soft overflow-hidden divide-y divide-line">
+          ${rows.map(({ f, last, unread }) => html`<button key=${f.id} onClick=${() => onOpenThread(f.id)}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-paper/70 transition text-left">
+            <span className="relative shrink-0">
+              <${Avatar} m=${f} size=${40}/>
+              <span className=${'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card ' + (api.presence[f.id] ? 'bg-sage' : 'bg-muted/40')}></span>
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[14px] font-semibold truncate">${f.name}</span>
+              <span className=${'block text-[12.5px] truncate ' + (unread > 0 ? 'text-ink font-semibold' : 'text-muted')}>
+                ${(api.typing[f.id] || 0) > Date.now() ? 'typing…' : last ? (last.kind === 'file' ? (last.mine ? 'You sent a file' : 'Sent a file') + ' · ' + (last.name || '') : (last.mine ? 'You: ' : '') + last.text) : 'Say hi — no messages yet'}
+              </span>
+            </span>
+            <span className="shrink-0 flex flex-col items-end gap-1">
+              <span className="text-[11px] text-muted numtab">${last ? when(last.ts) : ''}</span>
+              ${unread > 0 && html`<span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-rust text-paper text-[10px] font-bold flex items-center justify-center numtab">${unread > 9 ? '9+' : unread}</span>`}
+            </span>
+          </button>`)}
+        </div>`}
+      </div>
+
+    </div>
+  </div>`;
+}
+
+const ADDFRIEND_ERRS = {
+  self: 'That’s your own ID — share it with a friend instead!',
+  already: 'You two are already friends — start chatting!',
+  pending: 'Request already sent — waiting for them to accept.',
+  incoming: 'They already sent you a request — accept it from your requests list.',
+  notfound: 'No ID found for that code — double-check it, or ask them to open the app once.',
+  offline: 'Couldn’t reach the chat network — check your internet and try again.',
+  bad: 'Enter an ID of 3–14 letters or numbers.',
+};
+
+function AddFriendSheet({ onClose, onSend }) {
+  const [val, setVal] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const clean = normId(val);
+  const submit = async () => {
+    if (busy) return;
+    if (!clean) { setMsg({ kind: 'err', text: ADDFRIEND_ERRS.bad }); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const p = await onSend(clean);
+      setMsg({ kind: 'ok', text: 'Request sent to ' + (p && p.name ? p.name : chunkCode(clean)) + ' — you’ll see them here once they accept.' });
+      setVal('');
+    } catch (e) { setMsg({ kind: 'err', text: ADDFRIEND_ERRS[e] || ADDFRIEND_ERRS.offline }); }
+    setBusy(false);
+  };
+  return html`<${Sheet} title="Add a friend" onClose=${onClose}
+    footer=${html`<div className="shrink-0 border-t border-line px-5 py-3.5 flex gap-2 bg-card">
+      <button onClick=${onClose} className="flex-1 rounded-full border border-line px-4 py-2.5 text-[13.5px] font-semibold hover:border-muted transition">Close</button>
+      <button onClick=${submit} disabled=${busy || !clean} className=${'flex-1 rounded-full px-4 py-2.5 text-[13.5px] font-semibold transition active:scale-95 ' + (!clean || busy ? 'bg-ink/20 text-paper cursor-not-allowed' : 'bg-ink text-paper hover:bg-ink/90')}>${busy ? 'Sending…' : 'Send request'}</button>
+    </div>`}>
+    <div className="space-y-4">
+      <p className="text-[12.5px] text-muted leading-relaxed">Ask a friend for their ID (they’ll find it in the app). Paste it below — once they accept your request, you two can talk.</p>
+      <div>
+        <label className="lbl">Friend’s ID</label>
+        <input className="inp font-mono tracking-[.16em] uppercase text-[15px]" placeholder="THEIR-ID" spellCheck=${false} maxLength=${14}
+          value=${val} onChange=${e => { setVal(e.target.value); setMsg(null); }}
+          onKeyDown=${e => { if (e.key === 'Enter') submit(); }}/>
+        ${clean && val !== clean && html`<p className="text-[11.5px] text-muted mt-1.5 numtab">Will send to ${chunkCode(clean)}</p>`}
+      </div>
+      ${msg && html`<div className=${'rounded-2xl px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed ' + (msg.kind === 'ok' ? 'bg-sage-tint text-sage-deep border border-sage/25' : 'bg-rust-tint text-rust-deep border border-rust/25')}>${msg.text}</div>`}
+    </div>
+  <//>`;
+}
+
+function ProfileSheet({ me, onClose, onSave, onLogout, onDelete }) {
+  const [name, setName] = useState(me.name);
+  const [color, setColor] = useState(me.color);
+  const [pic, setPic] = useState(me.pic || '');
+  const [busy, setBusy] = useState(false);
+  const [confirmOut, setConfirmOut] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  useEffect(() => {
+    if (!confirmOut && !confirmDel) return;
+    const t = setTimeout(() => { setConfirmOut(false); setConfirmDel(false); }, 2600);
+    return () => clearTimeout(t);
+  }, [confirmOut, confirmDel]);
+
+  const save = async () => {
+    if (busy || !name.trim()) return;
+    setBusy(true);
+    await onSave({ name, color, pic });
+    setBusy(false);
+  };
+
+  return html`<${Sheet} title="Your profile" onClose=${onClose}
+    footer=${html`<div className="shrink-0 border-t border-line px-5 py-3.5 flex gap-2 bg-card">
+      <button onClick=${() => { if (confirmOut) onLogout(); else setConfirmOut(true); }} title="Log out on this device"
+        className=${'rounded-full px-3.5 py-2.5 text-[12.5px] font-semibold border transition active:scale-95 ' +
+          (confirmOut ? 'bg-rust text-paper border-rust' : 'border-line text-muted hover:text-rust hover:border-rust/40')}>
+        <span className="inline-flex items-center gap-1.5"><${Icon} name="logout" size=${13} sw=${2.4}/>${confirmOut ? 'Tap again' : 'Log out'}</span>
+      </button>
+      <button onClick=${onClose} className="flex-1 rounded-full border border-line px-4 py-2.5 text-[13.5px] font-semibold hover:border-muted transition">Cancel</button>
+      <button onClick=${save} disabled=${busy || !name.trim()}
+        className=${'flex-1 rounded-full px-4 py-2.5 text-[13.5px] font-semibold transition active:scale-95 ' + (busy || !name.trim() ? 'bg-ink/20 text-paper cursor-not-allowed' : 'bg-ink text-paper hover:bg-ink/90')}>${busy ? 'Saving…' : 'Save'}</button>
+    </div>`}>
+    <div className="space-y-4">
+      <div className="flex justify-center pt-1">
+        <${PicPicker} pic=${pic} color=${color} initial=${name.trim()[0]} onPic=${setPic} size=${80}/>
+      </div>
+      <div>
+        <label className="lbl">Display name</label>
+        <input className="inp" maxLength=${24} value=${name} onChange=${e => setName(e.target.value)}/>
+      </div>
+      <div>
+        <label className="lbl">Your color</label>
+        <div className="flex flex-wrap gap-2">
+          ${AV.map(c => html`<button key=${c} onClick=${() => setColor(c)} aria-label=${'Color ' + c}
+            className=${'w-8 h-8 rounded-full transition active:scale-90 ' + (color === c ? 'ring-2 ring-offset-2 ring-ink ring-offset-card' : 'hover:scale-110')}
+            style=${{ background: c }}></button>`)}
+        </div>
+      </div>
+      <div className="bg-paper border border-line rounded-2xl px-3.5 py-3 flex items-center gap-2.5">
+        <span className="w-7 h-7 rounded-full bg-ink text-paper flex items-center justify-center shrink-0"><${Icon} name="lock" size=${13} sw=${2.4}/></span>
+        <p className="text-[11.5px] text-muted leading-relaxed">Signed in as <span className="font-bold text-ink numtab">${chunkCode(me.id)}</span>. Changes reach your friends instantly.</p>
+      </div>
+
+      <div className="bg-rust-tint/60 border border-rust/25 rounded-2xl px-3.5 py-3">
+        <div className="flex items-start gap-2.5">
+          <span className="w-7 h-7 rounded-full bg-rust text-paper flex items-center justify-center shrink-0"><${Icon} name="trash" size=${13} sw=${2.4}/></span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[12.5px] font-bold text-rust-deep">Delete account</div>
+            <p className="text-[11.5px] text-muted leading-relaxed mt-0.5">Erases your ID for good, removes you from every friend’s list and wipes your cloud data. This cannot be undone.</p>
+          </div>
+        </div>
+        <button onClick=${() => { if (confirmDel) onDelete(); else setConfirmDel(true); }}
+          className=${'mt-2.5 w-full rounded-full py-2 text-[12.5px] font-bold transition active:scale-[.98] ' + (confirmDel ? 'bg-rust text-paper' : 'border border-rust/40 text-rust-deep hover:bg-rust hover:text-paper')}>
+          ${confirmDel ? 'Tap again — delete forever' : 'Delete my account'}
+        </button>
+      </div>
+    </div>
+  <//>`;
+}
+
+const FILE_META = {
+  image: { tint: 'bg-sage-tint text-sage-deep', label: 'Photo' },
+  video: { tint: 'bg-[#F3E8FF] text-[#8B5CF6]', label: 'Video' },
+  audio: { tint: 'bg-[#E3EDFE] text-[#2563C9]', label: 'Audio' },
+  pdf:   { tint: 'bg-rust-tint text-rust-deep', label: 'PDF' },
+  zip:   { tint: 'bg-[#FCEFD4] text-[#B45309]', label: 'Archive' },
+  doc:   { tint: 'bg-[#E3EDFE] text-[#2563C9]', label: 'Document' },
+  file:  { tint: 'bg-paper text-muted', label: 'File' },
+};
+const XFER_ERR = {
+  offline: 'You are offline — tap to retry',
+  wake: 'Couldn’t reach them — tap to retry',
+  drop: 'Transfer interrupted — tap to retry',
+  save: 'Couldn’t save the file — tap to retry',
+  rtc: 'Connection failed — tap to retry',
+};
+
+function FileBubble({ m, peerId, api }) {
+  const x = (api.xfers || {})[m.id] || {};
+  const kind = fileKindOf(m.mime, m.name);
+  const meta = FILE_META[kind] || FILE_META.file;
+  const isImg = kind === 'image';
+  const [have, setHave] = useState(false);
+  const [url, setUrl] = useState('');
+  const done = !m.mine && (x.status === 'done' || have);
+  const showImg = isImg && (m.mine || done);
+
+  useEffect(() => {
+    if (m.mine) return;
+    let dead = false;
+    api.loadFile(m.id).then(b => { if (!dead && b) setHave(true); });
+    return () => { dead = true; };
+  }, [m.id, m.mine]);
+
+  useEffect(() => {
+    if (!showImg) return;
+    let dead = false, created = '';
+    const f = m.mine ? api.peekOutFile(m.id) : null;
+    const use = b => { if (b && b.size <= 31457280) { created = URL.createObjectURL(b); if (!dead) setUrl(created); else URL.revokeObjectURL(created); } };
+    if (f) use(f);
+    else api.loadFile(m.id).then(use);
+    return () => { dead = true; if (created) URL.revokeObjectURL(created); };
+  }, [showImg, m.id, m.mine]);
+
+  const grab = () => {
+    if (done || x.status === 'wait' || x.status === 'run') return;
+    api.startDownload(peerId, m.id);
+  };
+  const saveBlob = async () => {
+    const b = await api.loadFile(m.id);
+    if (!b) return;
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u; a.download = m.name || 'file';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 60000);
+  };
+  const viewBlob = async () => {
+    const b = m.mine ? (api.peekOutFile(m.id) || null) : await api.loadFile(m.id);
+    if (b) window.open(URL.createObjectURL(b), '_blank');
+  };
+
+  const pct = Math.max(0, Math.min(100, Math.round((x.pct || 0) * 100)));
+  return html`<div className=${'px-3 py-2.5 ' + (m.mine ? 'bg-ink text-paper rounded-2xl rounded-br-md' : 'bg-card border border-line text-ink rounded-2xl rounded-bl-md')}>
+    ${showImg && url && html`<button onClick=${viewBlob} className="block mb-2" aria-label="View photo">
+      <img src=${url} alt=${m.name || 'photo'} className="max-h-56 w-auto rounded-xl ${m.mine ? 'border border-paper/20' : 'border border-line'}"/>
+    </button>`}
+    <div className="flex items-center gap-2.5 min-w-[190px] max-w-full">
+      ${(!showImg || !url) && html`<span className=${'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ' + (m.mine ? 'bg-paper/10 text-paper/85' : meta.tint)}>
+        <${Icon} name=${isImg ? 'camera' : 'doc'} size=${16}/>
+      </span>`}
+      <span className="flex-1 min-w-0">
+        <span className="block text-[13.5px] font-semibold truncate">${m.name || 'file'}</span>
+        <span className=${'block text-[11px] numtab ' + (m.mine ? 'text-paper/55' : 'text-muted')}>${prettyBytes(m.size)} · ${meta.label}</span>
+      </span>
+    </div>
+    ${m.mine && html`<div className=${'mt-1.5 text-[10.5px] font-bold numtab ' + (x.status === 'ack' ? 'text-[#3DDC5C]' : 'text-paper/50')}>
+      ${x.status === 'run' ? 'Sending · ' + pct + '%'
+        : x.status === 'sent' ? 'Sent — waiting for them to download'
+        : x.status === 'ack' ? 'Delivered'
+        : x.status === 'err' ? 'Interrupted'
+        : 'Sent'}
+    </div>`}
+    ${m.mine && x.status === 'run' && html`<div className="mt-1 h-1 rounded-full bg-paper/20 overflow-hidden">
+      <div className="h-full bg-[#3DDC5C] rounded-full transition-all duration-300" style=${{ width: Math.max(3, pct) + '%' }}></div>
+    </div>`}
+    ${!m.mine && (x.status === 'run' || x.status === 'wait') && html`<div className="mt-2">
+      ${x.status === 'run' && html`<div className="h-1.5 rounded-full bg-paper border border-line overflow-hidden">
+        <div className="h-full bg-sage rounded-full transition-all duration-300" style=${{ width: Math.max(3, pct) + '%' }}></div>
+      </div>`}
+      <div className=${'mt-1 text-[10.5px] font-bold numtab flex items-center gap-1.5 ' + (x.status === 'run' ? 'text-sage-deep' : 'text-muted')}>
+        <span className=${'w-1.5 h-1.5 rounded-full ' + (x.status === 'run' ? 'bg-sage live-dot' : 'bg-muted live-dot')}></span>
+        ${x.status === 'run' ? 'Receiving · ' + pct + '%' : 'Connecting…'}
+      </div>
+    </div>`}
+    ${!m.mine && x.status === 'gone' && html`<div className="mt-1.5 text-[11px] font-semibold text-muted">No longer available on their device</div>`}
+    ${!m.mine && x.status === 'err' && html`<button onClick=${grab} className="mt-1.5 text-[11px] font-bold text-rust hover:underline text-left">${XFER_ERR[x.err] || 'Tap to retry'}</button>`}
+    ${!m.mine && done && html`<div className="mt-2 flex items-center gap-2">
+      <button onClick=${saveBlob} className="inline-flex items-center gap-1.5 rounded-full bg-sage text-paper text-[11.5px] font-bold px-3 py-1.5 hover:bg-sage-deep active:scale-95 transition">
+        <${Icon} name="download" size=${12} sw=${2.4}/>Save
+      </button>
+      ${!isImg && html`<button onClick=${viewBlob} className="rounded-full border border-line text-muted text-[11.5px] font-bold px-3 py-1.5 hover:text-ink hover:border-muted transition">Open</button>`}
+    </div>`}
+    ${!m.mine && !x.status && !done && html`<button onClick=${grab} className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-ink text-paper text-[11.5px] font-bold px-3 py-1.5 hover:bg-ink/90 active:scale-95 transition">
+      <${Icon} name="download" size=${12} sw=${2.4}/>Download
+    </button>`}
+  </div>`;
+}
+
+function ChatThread({ peer, chat, api, onBack }) {
+  const msgs = (chat.threads || {})[peer.id] || [];
+  const seen = (chat.seenUpto || {})[peer.id] || 0;
+  const typingNow = (api.typing[peer.id] || 0) > Date.now();
+  const [text, setText] = useState('');
+  const [confirmDel, setConfirmDel] = useState(false);
+  const scRef = useRef(null);
+  const inputRef = useRef(null);
+  const fileRef = useRef(null);
+
+  useEffect(() => { const el = scRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs.length, typingNow]);
+  useEffect(() => { api.markRead(peer.id); if (inputRef.current && window.innerWidth > 640) inputRef.current.focus(); }, [peer.id]);
+  useEffect(() => {
+    if (!confirmDel) return;
+    const t = setTimeout(() => setConfirmDel(false), 2600);
+    return () => clearTimeout(t);
+  }, [confirmDel]);
+
+  const send = () => {
+    const t = text.trim(); if (!t) return;
+    setText('');
+    api.sendMsg(peer.id, t);
+    if (inputRef.current) inputRef.current.focus();
+  };
+
+  const onPickFile = e => {
+    const f = e.target.files && e.target.files[0];
+    try { e.target.value = ''; } catch (err) {}
+    if (f) api.attachFile(peer.id, f);
+  };
+
+  const groups = [];
+  msgs.forEach(m => {
+    const lab = dayLabel(m.ts);
+    let g = groups[groups.length - 1];
+    if (!g || g.label !== lab) { g = { label: lab, items: [] }; groups.push(g); }
+    g.items.push(m);
+  });
+
+  return html`<div className="flex-1 flex flex-col min-h-0">
+    <div className="shrink-0 border-b border-line bg-paper/90 backdrop-blur-md">
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 h-[60px] flex items-center gap-2.5">
+        <button onClick=${onBack} aria-label="Back to chats" className="p-2 -ml-1 rounded-full text-muted hover:bg-card hover:text-ink transition"><${Icon} name="left" size=${18}/></button>
+        <span className="relative shrink-0">
+          <${Avatar} m=${peer} size=${34}/>
+          <span className=${'absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-paper ' + (api.presence[peer.id] ? 'bg-sage' : 'bg-muted/40')}></span>
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-[14.5px] font-semibold truncate leading-tight">${peer.name}</div>
+          <div className=${'text-[11.5px] font-semibold truncate numtab ' + (typingNow || api.presence[peer.id] ? 'text-sage-deep' : 'text-muted')}>
+            ${typingNow ? 'typing…' : api.presence[peer.id] ? 'online' : chunkCode(peer.id)}
+          </div>
+        </div>
+        <button onClick=${() => { if (confirmDel) { api.unfriend(peer.id); onBack(); } else setConfirmDel(true); }} aria-label="Remove friend"
+          title=${confirmDel ? 'Tap again to remove' : 'Remove friend'}
+          className=${'p-2 rounded-full transition shrink-0 ' + (confirmDel ? 'bg-rust text-paper' : 'text-muted hover:text-rust hover:bg-rust-tint')}>
+          <${Icon} name="trash" size=${15}/>
+        </button>
+      </div>
+    </div>
+
+    <div ref=${scRef} className="flex-1 overflow-y-auto px-3 sm:px-6 py-4">
+      <div className="max-w-3xl mx-auto">
+        ${msgs.length === 0 && html`<div className="flex flex-col items-center justify-center text-center gap-2 pt-16">
+          <span className="w-11 h-11 rounded-full bg-card border border-line flex items-center justify-center text-muted"><${Icon} name="sparkle" size=${19}/></span>
+          <div className="text-[14px] font-semibold">You two are friends now</div>
+          <div className="text-[12.5px] text-muted">Send the first message — say hi!</div>
+        </div>`}
+        ${groups.map(g => html`<div key=${g.label}>
+          <div className="flex justify-center my-3.5"><span className="text-[10.5px] font-bold tracking-[.16em] uppercase text-muted bg-card border border-line rounded-full px-3 py-1">${g.label}</span></div>
+          ${g.items.map(m => html`<div key=${m.id} className="msg-in flex mb-1.5 ${m.mine ? 'justify-end' : 'justify-start'}">
+            <div className=${'max-w-[86%] sm:max-w-[72%] ' + (m.kind === 'file' ? '' : 'px-3.5 py-2 ' + (m.mine ? 'bg-ink text-paper rounded-2xl rounded-br-md' : 'bg-card border border-line text-ink rounded-2xl rounded-bl-md'))}>
+              ${m.kind === 'file'
+                ? html`<${FileBubble} m=${m} peerId=${peer.id} api=${api}/>`
+                : html`<div className="text-[14px] leading-snug break-words whitespace-pre-wrap">${m.text}</div>`}
+              <div className=${'mt-0.5 flex items-center justify-end gap-1 text-[10px] numtab ' + (m.mine && m.kind !== 'file' ? 'text-paper/45' : 'text-muted')}>
+                <span>${timeLabel(m.ts)}</span>
+                ${m.mine && html`<span className="ml-0.5 inline-flex">${seen >= m.ts
+                  ? html`<${Icon} name="checkCheck" size=${13} sw=${2.4} className="text-[#3DDC5C]"/>`
+                  : html`<${Icon} name="check" size=${11} sw=${2.8} className="opacity-70"/>`}</span>`}
+              </div>
+            </div>
+          </div>`)}
+        </div>`)}
+        ${typingNow && html`<div className="msg-in flex mb-1.5 justify-start">
+          <div className="bg-card border border-line rounded-2xl rounded-bl-md px-3.5 py-2.5 flex items-center gap-1 text-muted">
+            <span className="typ-dot"></span><span className="typ-dot"></span><span className="typ-dot"></span>
+          </div>
+        </div>`}
+      </div>
+    </div>
+
+    <div className="shrink-0 border-t border-line bg-card/95 backdrop-blur-md">
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 py-3 flex items-center gap-2">
+        <input ref=${fileRef} type="file" className="hidden" onChange=${onPickFile}/>
+        <button onClick=${() => { if (fileRef.current) fileRef.current.click(); }} aria-label="Attach a file" title="Attach any file type · up to 200 MB"
+          className="shrink-0 w-10 h-10 rounded-full bg-paper border border-line text-muted hover:text-ink hover:border-muted flex items-center justify-center transition active:scale-90">
+          <${Icon} name="clip" size=${16}/>
+        </button>
+        <input ref=${inputRef} className="inp !rounded-full flex-1" placeholder="Message…" maxLength=${1000} value=${text}
+          onChange=${e => { setText(e.target.value); api.pingTyping(peer.id); }}
+          onKeyDown=${e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}/>
+        <button onClick=${send} disabled=${!text.trim()} aria-label="Send message"
+          className=${'shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 ' + (text.trim() ? 'bg-ink text-paper hover:bg-ink/90' : 'bg-paper border border-line text-muted')}>
+          <${Icon} name="send" size=${16} sw=${2.2}/>
+        </button>
+      </div>
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 pb-2 -mt-1">
+        <span className="text-[10px] text-muted">The paperclip sends any file type up to 200 MB — delivered straight to your friend, peer-to-peer.</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function ChatOverlay({ chat, api, view, setView }) {
+  const me = chat.me;
+  const [addOpen, setAddOpen] = useState(false);
+  const [profOpen, setProfOpen] = useState(false);
+
+  useEffect(() => {
+    const h = e => {
+      if (e.key !== 'Escape') return;
+      if (addOpen) setAddOpen(false);
+      else if (profOpen) setProfOpen(false);
+      else if (view !== 'home') setView('home');
+    };
+    window.addEventListener('keydown', h);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', h); document.body.style.overflow = prev; };
+  }, [addOpen, profOpen, view]);
+
+  const peer = view !== 'home' ? ((chat.friends || {})[view] || null) : null;
+  const on = api.online;
+
+  return html`<div className="fixed inset-0 z-[70] flex flex-col dotbg">
+    <div className="shrink-0 border-b border-line bg-paper/90 backdrop-blur-md">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 h-[60px] flex items-center gap-3">
+        ${me && view !== 'home' && html`<button onClick=${() => setView('home')} aria-label="Back to chats"
+          className="p-2 -ml-1.5 rounded-full text-muted hover:bg-card hover:text-ink transition"><${Icon} name="left" size=${18}/></button>`}
+        <span className="inline-flex items-baseline rounded-lg bg-ink pl-2.5 pr-2 py-[7px] shrink-0 shadow-soft" aria-label="Chat">
+          <span className="font-display font-bold tracking-[.14em] text-[12.5px] leading-none text-paper uppercase">CHAT</span>
+          <span className="ml-[2.5px] font-display font-bold text-[15px] leading-none text-[#3DDC5C]">.</span>
+        </span>
+        <span className=${'inline-flex items-center gap-1.5 text-[9.5px] font-bold tracking-[.14em] uppercase rounded-full px-2 py-1 shrink-0 ' + (on ? 'bg-sage-tint text-sage-deep' : 'bg-card border border-line text-muted')}>
+          <span className=${'w-1.5 h-1.5 rounded-full ' + (on ? 'bg-sage live-dot' : 'bg-muted')}></span>${on ? 'Live' : 'Offline'}
+        </span>
+        ${me && html`<button onClick=${() => setProfOpen(true)} aria-label="Your profile" title="Your profile"
+          className="shrink-0 rounded-full shadow-soft active:scale-95 transition">
+          <${Avatar} m=${me} size=${32}/>
+        </button>`}
+        <div className="flex-1"></div>
+        ${me && view === 'home' && html`<${ChatIdCopy} id=${me.id}/>`}
+      </div>
+    </div>
+
+    ${!me
+      ? html`<${ChatOnboard} onCreate=${api.createIdentity}/>`
+      : peer
+        ? html`<${ChatThread} key=${peer.id} peer=${peer} chat=${chat} api=${api} onBack=${() => setView('home')}/>`
+        : html`<${ChatHome} chat=${chat} api=${api} onOpenThread=${id => setView(id)} onAddFriend=${() => setAddOpen(true)} onEditProfile=${() => setProfOpen(true)}/>`}
+
+    ${addOpen && me && html`<${AddFriendSheet} onClose=${() => setAddOpen(false)} onSend=${api.sendFriendReq}/>`}
+    ${profOpen && me && html`<${ProfileSheet} me=${me} onClose=${() => setProfOpen(false)} onSave=${p => { api.updateProfile(p); setProfOpen(false); }} onLogout=${() => { setProfOpen(false); api.logout(); }} onDelete=${() => { setProfOpen(false); api.deleteAcc(); }}/>`}
+  </div>`;
+}
+/* ---------------- app · chat only ---------------- */
+
+function App() {
+  /* every open is brand-new — no IDs, friends or chats are ever stored on this device */
+  const [db, setDb] = useState(freshDb);
+
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+  const showToast = (msg, icon) => {
+    const key = Date.now();
+    setToast({ key, msg, icon });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2400);
+  };
+
+  /* ---------------- chat engine ---------------- */
+
+  const chat = db.chat || freshChat();
+  const patchChat = fn => setDb(d => ({ ...d, chat: fn(d.chat || freshChat()) }));
+
+  const [chatView, setChatView] = useState('home');
+  const [chatOn, setChatOn] = useState(false);
+  const [presence, setPresence] = useState({});
+  const [typing, setTyping] = useState({});
+  const chatClientRef = useRef(null);
+  const chatSubsRef = useRef(new Set());
+  const removedIdsRef = useRef(new Set());      /* IDs removed on the network — this device never re-announces them */
+  const chatRef = useRef(chat); chatRef.current = chat;
+  const chatThreadRef = useRef(null); chatThreadRef.current = chatView === 'home' ? null : chatView;
+  const typSentRef = useRef({});
+  const restoreRef = useRef(false);   // pause state pushes while a restore lands
+  const stateTimerRef = useRef(null);
+
+  const chatPublish = (topic, obj, retain) => {
+    const c = chatClientRef.current; if (!c) return false;
+    try { c.publish(topic, obj === null ? '' : JSON.stringify(obj), { qos: 0, retain: !!retain }); return true; } catch (e) { return false; }
+  };
+  const meCard = me => ({ id: me.id, name: me.name, color: me.color });
+  /* ---- file attachments (bytes go P2P over WebRTC; MQTT carries only signals) ---- */
+  const [xfers, setXfers] = useState({});
+  const xfRef = useRef({}); xfRef.current = xfers;
+  const outFiles = useRef(new Map());   // mid -> File handle on this device
+  const pcs = useRef(new Map());        // mid -> { pc, dc, role, open, done, cands }
+  const inBufs = useRef(new Map());     // mid -> receiver reassembly buffer
+  const pullTimers = useRef(new Map());
+
+  const setXfer = (mid, patch) => setXfers(x => ({ ...x, [mid]: { ...(x[mid] || {}), ...patch } }));
+  const teardownXfer = mid => {
+    const p = pcs.current.get(mid);
+    if (p) { try { if (p.dc) p.dc.close(); } catch (e) {} try { if (p.pc) p.pc.close(); } catch (e) {} pcs.current.delete(mid); }
+    inBufs.current.delete(mid);
+    const t = pullTimers.current.get(mid);
+    if (t) { clearTimeout(t); pullTimers.current.delete(mid); }
+  };
+
+  /* pick a file (any type, ≤200 MB) and drop the metadata offer into the friend's inbox */
+  const attachFile = (peerId, file) => {
+    const me = chatRef.current.me;
+    if (!me || !file) return;
+    if (file.size > FILE_MAX) { showToast('Too large — files can be up to 200 MB', 'x'); return; }
+    const mid = uid() + Date.now().toString(36);
+    const meta = { name: String(file.name || 'file').slice(0, 120), size: file.size || 0, mime: file.type || '', ts: Date.now() };
+    outFiles.current.set(mid, file);
+    const ok = chatPublish(cTopic('inbox', peerId, 'off', mid), { app: 'splidchat', type: 'file-offer', id: mid, from: meCard(me), ...meta }, true);
+    if (!ok) { outFiles.current.delete(mid); showToast('Chat is offline — try again when live', 'x'); return; }
+    patchChat(c => {
+      const th = { ...(c.threads || {}) };
+      th[peerId] = [...(th[peerId] || []), { id: mid, mine: true, kind: 'file', ...meta }].slice(-300);
+      return { ...c, threads: th };
+    });
+  };
+
+  /* receiver side: ask the sender's device to start streaming this file */
+  const startDownload = (peerId, mid) => {
+    const me = chatRef.current.me;
+    if (!me || pcs.current.has(mid)) return;
+    const st = (xfRef.current[mid] || {}).status;
+    if (st === 'wait' || st === 'run' || st === 'done') return;
+    const old = pullTimers.current.get(mid); if (old) clearTimeout(old);
+    setXfer(mid, { status: 'wait', pct: 0, err: '' });
+    const ok = chatPublish(cTopic('inbox', peerId, 'pull', mid), { app: 'splidchat', type: 'file-pull', id: mid, from: me.id }, false);
+    if (!ok) { setXfer(mid, { status: 'err', err: 'offline' }); return; }
+    const t = setTimeout(() => {
+      const p = pcs.current.get(mid);
+      if (!p || !p.open) { setXfer(mid, { status: 'err', err: 'wake' }); teardownXfer(mid); }
+    }, 15000);
+    pullTimers.current.set(mid, t);
+  };
+
+  /* sender side: serve a pulled file over a chunked, backpressured data channel */
+  const beginCarrier = (peerId, mid) => {
+    const me = chatRef.current.me;
+    if (!me || pcs.current.has(mid)) return;
+    const file = outFiles.current.get(mid);
+    if (!file) {
+      chatPublish(cTopic('inbox', peerId, 'gone', mid), { app: 'splidchat', type: 'file-gone', id: mid, from: me.id }, false);
+      return;
+    }
+    let pc;
+    try { pc = new RTCPeerConnection({ iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] }); }
+    catch (e) { return; }
+    const rec = { pc, dc: null, role: 'send', open: false, done: false, cands: [], bytes: 0, lastBytes: -1, lastMove: Date.now() };
+    pcs.current.set(mid, rec);
+    setXfer(mid, { status: 'run', pct: 0, err: '' });
+    const fail = () => {
+      if (rec.done) return;
+      rec.done = true;
+      setXfer(mid, { status: 'err', err: 'drop' });
+      setTimeout(() => teardownXfer(mid), 600);
+    };
+    pc.onconnectionstatechange = () => { const s = pc.connectionState; if ((s === 'failed' || s === 'closed') && !rec.done) fail(); };
+    pc.onicecandidate = e => {
+      if (e.candidate) chatPublish(cTopic('inbox', peerId, 'rtc', mid), { app: 'splidchat', type: 'rtc-ice', id: mid, from: me.id, cand: e.candidate.toJSON() }, false);
+    };
+    const dc = pc.createDataChannel('f', { ordered: true });
+    rec.dc = dc;
+    try { dc.binaryType = 'arraybuffer'; dc.bufferedAmountLowThreshold = 262144; } catch (e) {}
+    const waitLow = () => new Promise(res => {
+      if (dc.bufferedAmount <= 262144) { res(); return; }
+      const h = () => { dc.removeEventListener('bufferedamountlow', h); res(); };
+      dc.addEventListener('bufferedamountlow', h);
+    });
+    const pump = async () => {
+      const CHUNK = 16384, total = file.size || 1;
+      try { dc.send(JSON.stringify({ t: 'hi', id: mid })); } catch (e) {}
+      let off = 0, lastUi = 0;
+      while (off < file.size) {
+        if (dc.readyState !== 'open') throw new Error('closed');
+        const buf = await file.slice(off, off + CHUNK).arrayBuffer();
+        if (dc.readyState !== 'open') throw new Error('closed');
+        dc.send(buf);
+        off += buf.byteLength;
+        rec.bytes = off;
+        const now = Date.now();
+        if (now - lastUi > 350) { lastUi = now; setXfer(mid, { pct: Math.min(1, off / total) }); }
+        if (dc.bufferedAmount > 4194304) await waitLow();
+      }
+      rec.done = true;
+      try { dc.send(JSON.stringify({ t: 'end', id: mid })); } catch (e) {}
+      setXfer(mid, { pct: 1, status: 'sent' });
+      setTimeout(() => { if ((xfRef.current[mid] || {}).status === 'sent') teardownXfer(mid); }, 8000);
+    };
+    dc.onopen = () => { rec.open = true; pump().catch(fail); };
+    pc.createOffer().then(o => pc.setLocalDescription(o)).then(() => {
+      chatPublish(cTopic('inbox', peerId, 'rtc', mid), { app: 'splidchat', type: 'rtc-offer', id: mid, from: me.id, sdp: (pc.localDescription && pc.localDescription.sdp) || '' }, false);
+    }).catch(fail);
+  };
+
+  /* receiver side: answer the sender's WebRTC offer and reassemble the stream */
+  const acceptCarrier = (senderId, mid, sdp) => {
+    const me = chatRef.current.me;
+    if (!me || pcs.current.has(mid)) return;
+    const st = (xfRef.current[mid] || {}).status;
+    if (st !== 'wait' && st !== 'err') return;
+    const old = pullTimers.current.get(mid); if (old) { clearTimeout(old); pullTimers.current.delete(mid); }
+    let pc;
+    try { pc = new RTCPeerConnection({ iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] }); }
+    catch (e) { setXfer(mid, { status: 'err', err: 'rtc' }); return; }
+    const rec = { pc, dc: null, role: 'recv', open: false, done: false, cands: [], lastBytes: -1, lastMove: Date.now() };
+    pcs.current.set(mid, rec);
+    const buf = { chunks: [], got: 0, lastUi: 0, finished: false, total: 0 };
+    buf.total = ((((chatRef.current.threads || {})[senderId] || []).find(x => x.id === mid) || {}).size) || 0;
+    inBufs.current.set(mid, buf);
+    const fail = () => {
+      if (rec.done) return;
+      rec.done = true;
+      buf.finished = true; buf.chunks.length = 0;
+      setXfer(mid, { status: 'err', err: 'drop' });
+      setTimeout(() => teardownXfer(mid), 600);
+    };
+    pc.onconnectionstatechange = () => { const s = pc.connectionState; if ((s === 'failed' || s === 'closed') && !rec.open && !rec.done) fail(); };
+    pc.onicecandidate = e => {
+      if (e.candidate) chatPublish(cTopic('inbox', senderId, 'rtc', mid), { app: 'splidchat', type: 'rtc-ice', id: mid, from: me.id, cand: e.candidate.toJSON() }, false);
+    };
+    pc.ondatachannel = ev => {
+      const dc = ev.channel;
+      rec.dc = dc; rec.open = true;
+      try { dc.binaryType = 'arraybuffer'; } catch (e) {}
+      setXfer(mid, { status: 'run', pct: 0, err: '' });
+      dc.onmessage = e => {
+        if (typeof e.data === 'string') {
+          let j; try { j = JSON.parse(e.data); } catch (err2) { return; }
+          if (j && j.t === 'end') finishIn(senderId, mid);
+          return;
+        }
+        buf.chunks.push(e.data);
+        buf.got += (e.data.byteLength || 0);
+        const now = Date.now();
+        if (now - buf.lastUi > 350 && buf.total) { buf.lastUi = now; setXfer(mid, { pct: Math.min(1, buf.got / buf.total) }); }
+      };
+      dc.onclose = () => {
+        if (!buf.finished && !rec.done) {
+          rec.done = true; buf.finished = true; buf.chunks.length = 0;
+          setXfer(mid, { status: 'err', err: 'drop' });
+          setTimeout(() => teardownXfer(mid), 600);
+        }
+      };
+    };
+    pc.setRemoteDescription({ type: 'offer', sdp }).then(() => {
+      rec.cands.forEach(c => { try { pc.addIceCandidate(c).catch(() => {}); } catch (e) {} });
+      rec.cands = [];
+      return pc.createAnswer();
+    }).then(a => pc.setLocalDescription(a)).then(() => {
+      chatPublish(cTopic('inbox', senderId, 'rtc', mid), { app: 'splidchat', type: 'rtc-answer', id: mid, from: me.id, sdp: (pc.localDescription && pc.localDescription.sdp) || '' }, false);
+    }).catch(fail);
+  };
+
+  /* receiver: all chunks arrived — persist the blob and ack the sender */
+  const finishIn = async (peerId, mid) => {
+    const buf = inBufs.current.get(mid);
+    const rec = pcs.current.get(mid);
+    if (!buf || buf.finished) return;
+    buf.finished = true;
+    if (rec) rec.done = true;
+    setXfer(mid, { pct: 1 });
+    try {
+      const blob = new Blob(buf.chunks);
+      buf.chunks.length = 0;
+      await storeFileBlob(mid, blob);
+      setXfer(mid, { status: 'done', pct: 1 });
+      const me = chatRef.current.me;
+      if (me) chatPublish(cTopic('inbox', peerId, 'ack', mid), { app: 'splidchat', type: 'file-done', id: mid, by: me.id }, false);
+    } catch (e) {
+      setXfer(mid, { status: 'err', err: 'save' });
+    }
+    teardownXfer(mid);
+  };
+
+  /* stall watchdog — a transfer that moves no bytes for 30s is declared dead */
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const now = Date.now();
+      pcs.current.forEach((rec, mid) => {
+        if (rec.done || !rec.open) return;
+        const moved = rec.role === 'recv' ? (inBufs.current.get(mid) || {}).got : rec.bytes;
+        if (moved !== rec.lastBytes) { rec.lastBytes = moved; rec.lastMove = now; return; }
+        if (now - rec.lastMove > 30000) {
+          setXfer(mid, { status: 'err', err: 'drop' });
+          if (rec.role === 'recv') { const b = inBufs.current.get(mid); if (b) { b.finished = true; b.chunks.length = 0; } }
+          rec.done = true;
+          teardownXfer(mid);
+        }
+      });
+    }, 6000);
+    return () => clearInterval(iv);
+  }, []);
+  /* this device's own ID was removed by the owner (tombstone landed): wipe the keyring, clean up
+     anything this device republished, and sign out for good */
+  const handleSelfRemoved = () => {
+    const me = chatRef.current.me;
+    const c = chatClientRef.current;
+    if (me) {
+      if (c) {
+        try { c.publish(cTopic('profile', me.id), '', { qos: 0, retain: true }); } catch (e) {}
+        try { c.publish(cTopic('state', me.id), '', { qos: 0, retain: true }); } catch (e) {}
+        try { c.publish(cTopic('presence', me.id), '', { qos: 0, retain: true }); } catch (e) {}
+      }
+      vaultDrop(me.id);   /* the keyring forgets this ID — it can never sign in from here again */
+    }
+    if (c) { setTimeout(() => { try { c.end(true); } catch (e) {} }, 500); } /* let the cleanup publishes flush */
+    chatClientRef.current = null;
+    chatSubsRef.current = new Set();
+    setPresence({}); setTyping({}); setChatOn(false); setChatView('home');
+    restoreRef.current = false;
+    patchChat(() => freshChat());
+    showToast('This ID was removed — you have been signed out', 'trash');
+  };
+  const onChatMsg = (topic, payload) => {
+    const me = chatRef.current.me; if (!me) return;
+    /* live handshake — another device is looking for MY id and the broker lost the retained copies: answer now */
+    if (topic === cTopic('need', me.id)) {
+      if (removedIdsRef.current.has(me.id)) return;   /* a removed ID never answers identity pings */
+      let d; try { d = JSON.parse(payload.toString()); } catch (e) { return; }
+      if (!d || d.app !== 'splidchat' || d.type !== 'need' || normId(d.id) !== me.id) return;
+      if (d.want === 'state') chatPublish(cTopic('state', me.id), { app:'splidchat', type:'state', v:1, state: vaultPickState(chatRef.current) }, false);
+      else chatPublish(cTopic('profile', me.id), { app:'splidchat', type:'profile', profile: { id: me.id, name: me.name, color: me.color, pic: me.pic || '', dev: me.dev, salt: me.salt, hash: me.hash }, updatedAt: Date.now() }, false);
+      return;
+    }
+    const inboxRoot = cTopic('inbox', me.id, '');
+    if (topic.indexOf(inboxRoot) === 0) {
+      let d; try { d = JSON.parse(payload.toString()); } catch (e) { return; }
+      if (!d || d.app !== 'splidchat') return;
+      if (d.type === 'friend-req' && d.from && d.from.id && d.from.id !== me.id && d.reqId) {
+        chatPublish(topic, null, true);
+        if (chatRef.current.reqsIn[d.reqId] || chatRef.current.friends[d.from.id]) {
+          if (chatRef.current.friends[d.from.id]) chatPublish(cTopic('inbox', d.from.id, 'acc', d.reqId), { app:'splidchat', type:'friend-acc', reqId: d.reqId, from: { ...meCard(me), pic: me.pic || '' }, ts: Date.now() }, true);
+          return;
+        }
+        patchChat(c => {
+          const ri = { ...(c.reqsIn || {}) };
+          Object.keys(ri).forEach(k => { if (ri[k].from && ri[k].from.id === d.from.id) delete ri[k]; });
+          ri[d.reqId] = { reqId: d.reqId, from: d.from, ts: d.ts || Date.now() };
+          return { ...c, reqsIn: ri };
+        });
+        showToast((d.from.name || 'Someone') + ' sent you a friend request', 'users');
+      } else if (d.type === 'friend-acc' && d.from && d.from.id && (!d.by || d.by === me.id)) {
+        chatPublish(topic, null, true);
+        const wasPending = !!chatRef.current.reqsOut[d.reqId];
+        patchChat(c => {
+          const ro = { ...(c.reqsOut || {}) }; delete ro[d.reqId];
+          const fr = { ...(c.friends || {}) };
+          if (!fr[d.from.id]) fr[d.from.id] = { id: d.from.id, name: d.from.name || d.from.id, color: d.from.color || AV[d.from.id.length % AV.length], pic: d.from.pic || '', since: Date.now() };
+          return { ...c, reqsOut: ro, friends: fr };
+        });
+        if (wasPending) showToast((d.from.name || 'They') + ' accepted — you can chat now', 'check');
+      } else if (d.type === 'friend-dec' && d.reqId) {
+        chatPublish(topic, null, true);
+        const out = chatRef.current.reqsOut[d.reqId];
+        if (!out) return;
+        patchChat(c => { const ro = { ...(c.reqsOut || {}) }; delete ro[d.reqId]; return { ...c, reqsOut: ro }; });
+        showToast((out.to.name || 'They') + ' declined your request', 'x');
+      } else if (d.type === 'chat-msg' && d.from && d.from.id && d.from.id !== me.id && typeof d.text === 'string') {
+        chatPublish(topic, null, true);
+        const fid = d.from.id;
+        if (!chatRef.current.friends[fid]) return;
+        if ((chatRef.current.threads || {})[fid] && chatRef.current.threads[fid].some(x => x.id === d.id)) return;
+        const openNow = chatThreadRef.current === fid;
+        patchChat(c => {
+          const th = { ...(c.threads || {}) };
+          th[fid] = [...(th[fid] || []), { id: d.id || uid(), mine: false, text: String(d.text).slice(0, 1000), ts: d.ts || Date.now() }].slice(-300);
+          const un = { ...(c.unread || {}) };
+          if (!openNow) un[fid] = (un[fid] || 0) + 1;
+          const fr = { ...(c.friends || {}) };
+          if (fr[fid] && d.from.name) fr[fid] = { ...fr[fid], name: d.from.name, color: d.from.color || fr[fid].color };
+          return { ...c, threads: th, unread: un, friends: fr };
+        });
+        if (openNow) chatPublish(cTopic('inbox', fid, 'read'), { app:'splidchat', type:'read', by: me.id, upto: d.ts || Date.now() }, false);
+        else showToast('New message from ' + firstName(d.from.name), 'chat');
+      } else if (d.type === 'file-offer' && d.from && d.from.id && d.from.id !== me.id && d.id) {
+        chatPublish(topic, null, true);
+        const fid = d.from.id;
+        if (!chatRef.current.friends[fid]) return;
+        const th0 = (chatRef.current.threads || {})[fid] || [];
+        if (th0.some(x => x.id === d.id)) return;
+        const openNow = chatThreadRef.current === fid;
+        patchChat(c => {
+          const th = { ...(c.threads || {}) };
+          th[fid] = [...(th[fid] || []), { id: d.id, mine: false, kind: 'file', name: d.name || 'file', size: d.size || 0, mime: d.mime || '', ts: d.ts || Date.now() }].slice(-300);
+          const un = { ...(c.unread || {}) };
+          if (!openNow) un[fid] = (un[fid] || 0) + 1;
+          return { ...c, threads: th, unread: un };
+        });
+        if (openNow) chatPublish(cTopic('inbox', fid, 'read'), { app:'splidchat', type:'read', by: me.id, upto: d.ts || Date.now() }, false);
+        else showToast(firstName(d.from.name) + ' sent you a file', 'doc');
+      } else if (d.type === 'file-pull' && d.from && chatRef.current.friends[d.from] && d.from !== me.id && d.id) {
+        beginCarrier(d.from, d.id);
+      } else if (d.type === 'file-gone' && d.from && chatRef.current.friends[d.from] && d.from !== me.id && d.id) {
+        setXfer(d.id, { status: 'gone' });
+        teardownXfer(d.id);
+      } else if (d.type === 'file-done' && d.by && chatRef.current.friends[d.by] && d.by !== me.id && d.id) {
+        setXfer(d.id, { status: 'ack', pct: 1 });
+        teardownXfer(d.id);
+      } else if (d.type === 'rtc-offer' && d.from && chatRef.current.friends[d.from] && d.from !== me.id && d.id && d.sdp) {
+        acceptCarrier(d.from, d.id, d.sdp);
+      } else if (d.type === 'rtc-answer' && d.sdp && d.from && d.from !== me.id && d.id) {
+        const rec = pcs.current.get(d.id);
+        if (rec && rec.role === 'send' && rec.pc.signalingState === 'have-local-offer') {
+          rec.pc.setRemoteDescription({ type: 'answer', sdp: d.sdp }).then(() => {
+            (rec.cands || []).forEach(c => { try { rec.pc.addIceCandidate(c).catch(() => {}); } catch (e) {} });
+            rec.cands = [];
+          }).catch(() => {});
+        }
+      } else if (d.type === 'rtc-ice' && d.cand && d.from && d.from !== me.id && d.id) {
+        const rec = pcs.current.get(d.id);
+        if (rec && rec.pc) {
+          const hasRemote = !!(rec.pc.remoteDescription && rec.pc.remoteDescription.type);
+          if (hasRemote) { try { rec.pc.addIceCandidate(d.cand).catch(() => {}); } catch (e) {} }
+          else rec.cands.push(d.cand);
+        }
+      } else if (d.type === 'read' && d.by && chatRef.current.friends[d.by] && d.by !== me.id) {
+        patchChat(c => ({ ...c, seenUpto: { ...(c.seenUpto || {}), [d.by]: Math.max((c.seenUpto || {})[d.by] || 0, d.upto || 0) } }));
+      } else if (d.type === 'friend-del' && d.from && d.from !== me.id) {
+        chatPublish(topic, null, true);
+        if (chatRef.current.friends[d.from]) {
+          patchChat(c => {
+            const fr = { ...(c.friends || {}) }; delete fr[d.from];
+            const th = { ...(c.threads || {}) }; delete th[d.from];
+            const un = { ...(c.unread || {}) }; delete un[d.from];
+            const su = { ...(c.seenUpto || {}) }; delete su[d.from];
+            return { ...c, friends: fr, threads: th, unread: un, seenUpto: su };
+          });
+          showToast('A friend deleted their account', 'trash');
+        }
+      } else if (d.type === 'typ' && d.from && chatRef.current.friends[d.from] && d.from !== me.id) {
+        setTyping(t => ({ ...t, [d.from]: Date.now() + 3200 }));
+      }
+      return;
+    }
+    if (topic === cTopic('profile', me.id)) {
+      let d; try { d = JSON.parse(payload.toString()); } catch (e) { return; }
+      if (d && d.profile && d.profile.dev && me.dev && d.profile.dev !== me.dev) {
+        patchChat(c => {
+          if (!c.me) return c;
+          return { ...c, me: { ...c.me, name: d.profile.name || c.me.name, color: d.profile.color || c.me.color, pic: d.profile.pic !== undefined ? (d.profile.pic || '') : (c.me.pic || '') } };
+        });
+        showToast('This ID is also active on another device', 'users');
+      }
+      return;
+    }
+    let m = topic.match(/^splidchat\/v1\/presence\/([A-Z0-9]+)$/);
+    if (m && chatRef.current.friends[m[1]]) {
+      setPresence(p => ({ ...p, [m[1]]: payload.toString().length > 0 }));
+      return;
+    }
+    m = topic.match(/^splidchat\/v1\/profile\/([A-Z0-9]+)$/);
+    if (m && payload.toString()) {
+      let d; try { d = JSON.parse(payload.toString()); } catch (e) { return; }
+      if (d && d.profile && d.profile.id) {
+        if (chatRef.current.friends[m[1]]) patchChat(c => {
+          const fr = { ...(c.friends || {}) }; const f = fr[d.profile.id]; if (!f) return c;
+          fr[d.profile.id] = { ...f, name: d.profile.name || f.name, color: d.profile.color || f.color, pic: d.profile.pic !== undefined ? (d.profile.pic || '') : (f.pic || '') };
+          return { ...c, friends: fr };
+        });
+      }
+      return;
+    }
+    m = topic.match(/^splidchat\/v1\/removed\/([A-Z0-9]+)$/);
+    if (m) {
+      const s = payload.toString();
+      if (!s) {   /* tombstone cleared — the owner restored the ID */
+        if (m[1] === me.id) removedIdsRef.current.delete(me.id);
+        return;
+      }
+      let d; try { d = JSON.parse(s); } catch (e) { return; }
+      if (!d || d.app !== 'splidchat' || d.type !== 'removed' || normId(d.id) !== m[1]) return;
+      if (d.id === me.id && !removedIdsRef.current.has(me.id)) { removedIdsRef.current.add(me.id); handleSelfRemoved(); }
+      return;
+    }
+  };
+  const connectChat = () => {
+    if (chatClientRef.current || typeof mqtt === 'undefined') return;
+    const me = chatRef.current.me; if (!me) return;
+    let c;
+    try {
+      c = mqtt.connect(MQTT_URL, {
+        clientId: 'splidchat-' + uid(), keepalive: 30, reconnectPeriod: 4000, connectTimeout: 8000, clean: true,
+        will: { topic: cTopic('presence', me.id), payload: '', qos: 0, retain: true },
+      });
+    } catch (e) { return; }
+    chatClientRef.current = c;
+    c.on('connect', () => {
+      setChatOn(true);
+      const me2 = chatRef.current.me; if (!me2) return;
+      chatSubsRef.current.add(cTopic('inbox', me2.id, '#'));
+      chatSubsRef.current.add(cTopic('need', me2.id)); /* live handshake listener — answers identity pings */
+      chatSubsRef.current.add(cTopic('profile', me2.id));
+      chatSubsRef.current.add(cTopic('removed', me2.id)); /* our own tombstone — lands instantly if the owner removed this ID */
+      Object.keys(chatRef.current.friends || {}).forEach(f => { chatSubsRef.current.add(cTopic('presence', f)); chatSubsRef.current.add(cTopic('profile', f)); });
+      chatSubsRef.current.forEach(t => { try { c.subscribe(t, { qos: 0 }); } catch (e) {} });
+      chatPublish(cTopic('presence', me2.id), { app:'splidchat', on: 1, t: Date.now() }, true);
+      if (!removedIdsRef.current.has(normId(me2.id))) {   /* a removed ID never re-announces its identity */
+        chatPublish(cTopic('profile', me2.id), { app:'splidchat', type:'profile', profile: { id: me2.id, name: me2.name, color: me2.color, pic: me2.pic || '', dev: me2.dev, salt: me2.salt, hash: me2.hash }, updatedAt: Date.now() }, true);
+      }
+    });
+    c.on('close', () => setChatOn(false));
+    c.on('error', () => {});
+    c.on('message', onChatMsg);
+  };
+
+  useEffect(() => { if (chat.me && !chatClientRef.current) connectChat(); }, [chat.me && chat.me.id]);
+  const friendsSig = Object.keys(chat.friends || {}).sort().join(',');
+  useEffect(() => {
+    const c = chatClientRef.current; if (!c) return;
+    friendsSig.split(',').filter(Boolean).forEach(f => {
+      [cTopic('presence', f), cTopic('profile', f)].forEach(t => {
+        if (!chatSubsRef.current.has(t)) { chatSubsRef.current.add(t); try { c.subscribe(t, { qos: 0 }); } catch (e) {} }
+      });
+    });
+  }, [friendsSig, chatOn]);
+
+  useEffect(() => {
+    const iv = setInterval(() => setTyping(t => {
+      const now = Date.now(); let ch = false; const o = {};
+      Object.keys(t).forEach(k => { if (t[k] > now) o[k] = t[k]; else ch = true; });
+      return ch ? o : t;
+    }), 1200);
+    return () => clearInterval(iv);
+  }, []);
+
+  useEffect(() => {
+    const bye = () => {
+      const me = chatRef.current.me; const c = chatClientRef.current;
+      if (me && c) {
+        try { c.publish(cTopic('presence', me.id), '', { qos: 0, retain: true }); } catch (e) {}
+        try { c.end(true); } catch (e) {}
+      }
+    };
+    window.addEventListener('beforeunload', bye);
+    return () => { window.removeEventListener('beforeunload', bye); if (chatClientRef.current) { try { chatClientRef.current.end(true); } catch (e) {} } };
+  }, []);
+  /* cloud state sync — debounced retained snapshot so the account can be restored on any device */
+  useEffect(() => {
+    if (!chat.me || restoreRef.current || !chatOn) return;
+    clearTimeout(stateTimerRef.current);
+    stateTimerRef.current = setTimeout(() => {
+      const me = chatRef.current.me;
+      if (!me || restoreRef.current) return;
+      const base = {
+        me: { id: me.id, name: me.name, color: me.color, pic: me.pic || '', joinedAt: me.joinedAt, salt: me.salt, hash: me.hash },
+        friends: chatRef.current.friends || {},
+        reqsIn: chatRef.current.reqsIn || {},
+        reqsOut: chatRef.current.reqsOut || {},
+        unread: chatRef.current.unread || {},
+        seenUpto: chatRef.current.seenUpto || {},
+      };
+      const build = threads => ({ app:'splidchat', type:'state', v:1, state: { ...base, threads }, updatedAt: Date.now() });
+      let th = {};
+      Object.keys(chatRef.current.threads || {}).forEach(k => { th[k] = (chatRef.current.threads[k] || []).slice(-60); });
+      let payload = JSON.stringify(build(th));
+      if (payload.length > 600000) { Object.keys(th).forEach(k => { th[k] = th[k].slice(-25); }); payload = JSON.stringify(build(th)); }
+      if (payload.length > 600000) { th = {}; payload = JSON.stringify(build(th)); }
+      try { chatPublish(cTopic('state', me.id), JSON.parse(payload), true); } catch (e) {}
+    }, 1200);
+    return () => clearTimeout(stateTimerRef.current);
+  }, [chat, chatOn]);
+  /* ---- chat actions ---- */
+  const createIdentity = async ({ name, id, color, pic, password }) => {
+    const clean = normId(id);               /* exactly what the user chose — 3–14 chars, short or long, no padding */
+    const pw = String(password || '');
+    if (!name.trim() || clean.length < 3 || clean.length > 14) return { taken: false };
+    if (pw.length < 4) return { taken: false, weak: true };
+    const existing = await fetchChatProfile(clean);
+    if (existing) return { taken: true };
+    const tomb = await pullRetained(REMOVED_TOPIC(clean), d => d && d.app === 'splidchat' && d.type === 'removed' && d.id === clean, { timeout: 3200, fastMs: 1800 });
+    if (tomb && tomb.data) return { taken: false, removedId: true };   /* the owner removed this ID — unusable until restored */
+    const salt = uid() + uid();
+    const hash = await pwHash(salt, pw);
+    const me = { id: clean, name: name.trim().slice(0, 24), color: color || AV[hashStr(clean) % AV.length], pic: pic || '', joinedAt: Date.now(), dev: db.deviceId, salt, hash };
+    restoreRef.current = false;
+    patchChat(c => ({ ...(c || freshChat()), me }));
+    showToast('ID created — share ' + chunkCode(clean) + ' with friends', 'sparkle');
+    return { taken: false };
+  };
+
+  /* permanently delete the account — wipes the cloud identity & snapshot, clears the inbox, tells friends, then signs out here */
+  const deleteAccount = () => {
+    const me = chatRef.current.me;
+    const c = chatClientRef.current;
+    if (me) {
+      Object.keys(chatRef.current.friends || {}).forEach(fid => {
+        chatPublish(cTopic('inbox', fid, 'del', uid()), { app:'splidchat', type:'friend-del', from: me.id, ts: Date.now() }, true);
+      });
+      Object.values(chatRef.current.reqsOut || {}).forEach(r => { if (r.to && r.to.id) chatPublish(cTopic('inbox', r.to.id, 'req', r.reqId), null, true); });
+      chatPublish(cTopic('profile', me.id), null, true);
+      chatPublish(cTopic('state', me.id), null, true);
+      chatPublish(cTopic('presence', me.id), '', true);
+      vaultDrop(me.id); /* the keyring forgets this ID too */
+      try {
+        const w = mqtt.connect(MQTT_URL, { clientId: 'splidx-' + uid(), keepalive: 10, reconnectPeriod: 0, connectTimeout: 6000 });
+        const root = cTopic('inbox', me.id, '');
+        w.on('connect', () => { try { w.subscribe(root + '#', { qos: 0 }); } catch (e) {} });
+        w.on('message', t => { if (t.indexOf(root) === 0) { try { w.publish(t, '', { qos: 0, retain: true }); } catch (e) {} } });
+        setTimeout(() => { try { w.end(true); } catch (e) {} }, 6000);
+      } catch (e) {}
+    }
+    if (c) { setTimeout(() => { try { c.end(true); } catch (e) {} }, 600); } /* small delay so the goodbye publishes flush before the socket closes */
+    chatClientRef.current = null;
+    chatSubsRef.current = new Set();
+    Array.from(new Set([...pcs.current.keys(), ...pullTimers.current.keys()])).forEach(teardownXfer);
+    outFiles.current.clear();
+    setPresence({}); setTyping({}); setChatOn(false); setChatView('home');
+    restoreRef.current = false;
+    patchChat(() => freshChat());
+    showToast('Account deleted — that ID is now free', 'trash');
+  };
+  /* log out on this device — everything is dropped; the next open starts brand-new */
+  const logoutChat = () => {
+    const me = chatRef.current.me;
+    const c = chatClientRef.current;
+    if (me && c) { try { c.publish(cTopic('presence', me.id), '', { qos: 0, retain: true }); } catch (e) {} }
+    if (c) { setTimeout(() => { try { c.end(true); } catch (e) {} }, 500); } /* let the presence clear flush */
+    chatClientRef.current = null;
+    chatSubsRef.current = new Set();
+    Array.from(new Set([...pcs.current.keys(), ...pullTimers.current.keys()])).forEach(teardownXfer);
+    setPresence({}); setTyping({}); setChatOn(false); setChatView('home');
+    restoreRef.current = false;
+    patchChat(() => freshChat());
+    showToast('Logged out', 'logout');
+  };
+  const updateProfile = async ({ name, color, pic }) => {
+    const me = chatRef.current.me; if (!me) return;
+    const next = { ...me, name: (name || '').trim().slice(0, 24) || me.name, color: color || me.color, pic: pic || '' };
+    patchChat(c => ({ ...c, me: next }));
+    chatPublish(cTopic('profile', me.id), { app:'splidchat', type:'profile', profile: { id: me.id, name: next.name, color: next.color, pic: next.pic, dev: me.dev, salt: me.salt, hash: me.hash }, updatedAt: Date.now() }, true);
+    showToast('Profile updated', 'check');
+  };
+  const sendFriendReq = async idRaw => {
+    const me = chat.me; const clean = normId(idRaw);
+    if (!me) throw 'offline';
+    if (!clean || clean.length < 3) throw 'bad';
+    if (clean === me.id) throw 'self';
+    if (chat.friends[clean]) throw 'already';
+    if (Object.values(chat.reqsOut || {}).some(r => r.to && r.to.id === clean)) throw 'pending';
+    if (Object.values(chat.reqsIn || {}).some(r => r.from && r.from.id === clean)) throw 'incoming';
+    let p = await fetchChatProfile(clean).catch(() => null);
+    if (!p) { try { const r = await lookupLive(clean, 'profile', 4200); if (r.data && r.data.profile) p = r.data.profile; } catch (e) {} } /* retained lost → ask live */
+    if (!p || !p.id) throw 'notfound';
+    const reqId = uid() + Date.now().toString(36);
+    const ok = chatPublish(cTopic('inbox', clean, 'req', reqId), { app:'splidchat', type:'friend-req', reqId, from: { ...meCard(me), pic: me.pic || '' }, ts: Date.now() }, true);
+    if (!ok) throw 'offline';
+    patchChat(c => ({ ...c, reqsOut: { ...(c.reqsOut || {}), [reqId]: { reqId, to: { id: p.id, name: p.name || p.id, color: p.color, pic: p.pic || '' }, ts: Date.now() } } }));
+    return p;
+  };
+
+  const acceptReq = reqId => {
+    const r = (chat.reqsIn || {})[reqId]; if (!r || !r.from) return;
+    patchChat(c => {
+      const ri = { ...(c.reqsIn || {}) }; delete ri[reqId];
+      const fr = { ...(c.friends || {}) };
+      fr[r.from.id] = { id: r.from.id, name: r.from.name || r.from.id, color: r.from.color || AV[r.from.id.length % AV.length], pic: r.from.pic || '', since: Date.now() };
+      return { ...c, reqsIn: ri, friends: fr };
+    });
+    chatPublish(cTopic('inbox', r.from.id, 'acc', reqId), { app:'splidchat', type:'friend-acc', reqId, from: { ...meCard(chat.me), pic: chat.me.pic || '' }, ts: Date.now() }, true);
+    chatPublish(cTopic('inbox', chat.me.id, 'req', reqId), null, true);
+    showToast((r.from.name || 'They') + ' is now your friend', 'check');
+  };
+
+  const declineReq = reqId => {
+    const r = (chat.reqsIn || {})[reqId]; if (!r) return;
+    patchChat(c => { const ri = { ...(c.reqsIn || {}) }; delete ri[reqId]; return { ...c, reqsIn: ri }; });
+    chatPublish(cTopic('inbox', r.from.id, 'dec', reqId), { app:'splidchat', type:'friend-dec', reqId, from: meCard(chat.me), ts: Date.now() }, true);
+    chatPublish(cTopic('inbox', chat.me.id, 'req', reqId), null, true);
+  };
+
+  const cancelReq = reqId => {
+    const r = (chat.reqsOut || {})[reqId]; if (!r) return;
+    patchChat(c => { const ro = { ...(c.reqsOut || {}) }; delete ro[reqId]; return { ...c, reqsOut: ro }; });
+    chatPublish(cTopic('inbox', r.to.id, 'req', reqId), null, true);
+  };
+
+  const unfriend = fid => {
+    patchChat(c => {
+      const fr = { ...(c.friends || {}) }; delete fr[fid];
+      const th = { ...(c.threads || {}) }; delete th[fid];
+      const un = { ...(c.unread || {}) }; delete un[fid];
+      return { ...c, friends: fr, threads: th, unread: un };
+    });
+    const c = chatClientRef.current;
+    [cTopic('presence', fid), cTopic('profile', fid)].forEach(t => { chatSubsRef.current.delete(t); if (c) { try { c.unsubscribe(t); } catch (e) {} } });
+    showToast('Friend removed', 'trash');
+  };
+
+  const sendMsg = (peerId, text) => {
+    const me = chat.me; const t = String(text || '').trim().slice(0, 1000);
+    if (!me || !t) return;
+    const now = Date.now(), mid = uid();
+    const ok = chatPublish(cTopic('inbox', peerId, 'msg', mid), { app:'splidchat', type:'chat-msg', id: mid, from: meCard(me), text: t, ts: now }, true);
+    patchChat(c => {
+      const th = { ...(c.threads || {}) };
+      th[peerId] = [...(th[peerId] || []), { id: mid, mine: true, text: t, ts: now }].slice(-300);
+      return { ...c, threads: th };
+    });
+    if (!ok) showToast('Chat is offline — message may not deliver', 'x');
+  };
+
+  const markRead = fid => {
+    const arr = (chat.threads || {})[fid] || [];
+    const upto = arr.length ? arr[arr.length - 1].ts : 0;
+    if (((chat.unread || {})[fid] || 0) > 0) patchChat(c => ({ ...c, unread: { ...(c.unread || {}), [fid]: 0 } }));
+    if (upto && chat.me) chatPublish(cTopic('inbox', fid, 'read'), { app:'splidchat', type:'read', by: chat.me.id, upto }, false);
+  };
+
+  const pingTyping = fid => {
+    const now = Date.now();
+    if (typSentRef.current[fid] && now - typSentRef.current[fid] < 2200) return;
+    typSentRef.current[fid] = now;
+    if (chat.me) chatPublish(cTopic('inbox', fid, 'typ'), { app:'splidchat', type:'typ', from: chat.me.id }, false);
+  };
+  const chatApi = { online: chatOn, presence, typing, xfers, createIdentity, logout: logoutChat, deleteAcc: deleteAccount, updateProfile, sendFriendReq, acceptReq, declineReq, cancelReq, unfriend, sendMsg, markRead, pingTyping, attachFile, startDownload, peekOutFile: mid => outFiles.current.get(mid) || null, loadFile: mid => loadFileBlob(mid),
+  };
+
+  /* the chat IS the app — always open, default view */
+  return html`<div className="min-h-screen dotbg text-ink font-sans antialiased">
+    <${ChatOverlay} chat=${chat} api=${chatApi} view=${chatView} setView=${setChatView}/>
+    <${ToastView} toast=${toast}/>
+  </div>`;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${App}/>`);
+</script>
+</body>
+</html>
